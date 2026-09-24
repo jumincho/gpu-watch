@@ -1,0 +1,52 @@
+Host *
+  StrictHostKeyChecking yes
+  UpdateHostKeys no
+  UserKnownHostsFile ~/.ssh/known_hosts
+
+Host gpuwatch-local-lab*
+  User gpuwatch
+  BatchMode no
+  NumberOfPasswordPrompts 1
+  PreferredAuthentications password,keyboard-interactive
+  PasswordAuthentication yes
+  KbdInteractiveAuthentication yes
+  PubkeyAuthentication no
+
+Host gpuwatch-local-lab21
+  HostName 198.51.100.21
+  Port 2222
+
+Host gpuwatch-local-lab22
+  HostName 198.51.100.22
+  Port 22
+  ProxyJump gpuwatch-local-lab21
+
+Host gpuwatch-local-lab23
+  HostName 198.51.100.23
+  Port 22
+  ProxyJump gpuwatch-local-lab21
+
+Host gpuwatch-local-lab24
+  HostName 198.51.100.24
+  Port 22
+  ProxyJump gpuwatch-local-lab21
+
+Host gpuwatch-local-lab25
+  HostName 198.51.100.25
+  Port 22
+  ProxyJump gpuwatch-local-lab21
+
+Host gpuwatch-local-lab26
+  HostName 198.51.100.26
+  Port 22
+  ProxyJump gpuwatch-local-lab21
+
+Host gpuwatch-local-lab27
+  HostName 198.51.100.27
+  Port 22
+  ProxyJump gpuwatch-local-lab21
+
+Host gpuwatch-local-lab28
+  HostName 198.51.100.28
+  Port 22
+  ProxyJump gpuwatch-local-lab21

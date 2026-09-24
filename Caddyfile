@@ -1,0 +1,33 @@
+{
+	admin off
+	auto_https off
+}
+
+http://192.0.2.10:8787 {
+	log {
+		output stdout
+		format json
+	}
+	encode zstd gzip
+
+	header {
+		-Server
+	}
+
+	@allowed remote_ip 127.0.0.0/8 ::1 192.0.2.0/24
+	handle @allowed {
+		reverse_proxy gpu-watch-dashboard:8787 {
+			transport http {
+				dial_timeout 5s
+				response_header_timeout 20s
+			}
+		}
+	}
+
+	respond "Forbidden" 403
+}
+
+:8787 {
+	header -Server
+	respond "Forbidden" 403
+}

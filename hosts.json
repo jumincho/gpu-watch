@@ -1,0 +1,408 @@
+{
+  "poll_interval_seconds": 10,
+  "ssh_timeout_seconds": 8,
+  "ssh_gpu_probe_timeout_seconds": 45,
+  "ssh_disk_probe_timeout_seconds": 720,
+  "remote_probe_command_timeout_seconds": 8,
+  "docker_usage_timeout_seconds": 30,
+  "collector_workers": 8,
+  "disk_poll_interval_seconds": 1800,
+  "disk_du_timeout_seconds": 600,
+  "disk_probe_workers": 2,
+  "busy_memory_threshold_mib": 500,
+  "busy_utilization_threshold_percent": 10,
+  "activity_policy": {
+    "hot_server_busy_fraction": 0.5,
+    "cold_idle_days": 7,
+    "cold_min_session_seconds": 60
+  },
+  "event_retention_days": 180,
+  "announcement_retention_days": 90,
+  "backup_retention_days": 14,
+  "predeployment_backup_retention_days": 30,
+  "daily_index_retention_days": 180,
+  "raw_interval_retention_days": 8,
+  "maintenance_initial_delay_seconds": 120,
+  "labs": [
+    {
+      "id": "nll",
+      "label": "NLL LAB",
+      "note": "docker-backed NLL servers"
+    },
+    {
+      "id": "nlp",
+      "label": "NLP LAB",
+      "note": "labxxx series"
+    }
+  ],
+  "hosts": [
+    {
+      "name": "lab21",
+      "label": "lab21",
+      "display_ip": "198.51.100.21",
+      "lab": "nlp",
+      "expected_gpu_count": 2,
+      "note": "NVIDIA GeForce GTX TITAN X x2",
+      "owner": "공용",
+      "owner_type": "shared",
+      "location": "Room 412",
+      "ssh_password_file": "secrets/nlp_password",
+      "ssh_options": [
+        "PreferredAuthentications=password,keyboard-interactive",
+        "PubkeyAuthentication=no"
+      ],
+      "disk_user_paths": [
+        {
+          "user": "gpuwatch",
+          "path": "/tmp/gpuwatch"
+        }
+      ]
+    },
+    {
+      "name": "lab22",
+      "label": "lab22",
+      "lab": "nlp",
+      "expected_gpu_count": 6,
+      "note": "NVIDIA GeForce GTX TITAN X x6, /tmp home",
+      "owner": "공용",
+      "owner_type": "shared",
+      "location": "Data center",
+      "ssh_host": "198.51.100.22",
+      "ssh_user": "gpuwatch",
+      "ssh_port": 22,
+      "ssh_password_file": "secrets/nlp_password",
+      "ssh_options": [
+        "PreferredAuthentications=password,keyboard-interactive",
+        "PubkeyAuthentication=no"
+      ],
+      "disk_user_paths": [
+        {
+          "user": "gpuwatch",
+          "path": "/tmp/gpuwatch"
+        }
+      ]
+    },
+    {
+      "name": "lab23",
+      "label": "lab23",
+      "display_ip": "198.51.100.23",
+      "lab": "nlp",
+      "expected_gpu_count": 8,
+      "note": "NVIDIA TITAN Xp x8",
+      "owner": "공용",
+      "owner_type": "shared",
+      "location": "Data center",
+      "ssh_password_file": "secrets/nlp_password",
+      "ssh_options": [
+        "PreferredAuthentications=password,keyboard-interactive",
+        "PubkeyAuthentication=no"
+      ]
+    },
+    {
+      "name": "lab24",
+      "label": "lab24",
+      "display_ip": "198.51.100.24",
+      "lab": "nlp",
+      "expected_gpu_count": 4,
+      "note": "NVIDIA Quadro RTX 8000 x4",
+      "owner": "공용",
+      "owner_type": "shared",
+      "location": "Data center",
+      "ssh_password_file": "secrets/nlp_password",
+      "ssh_options": [
+        "PreferredAuthentications=password,keyboard-interactive",
+        "PubkeyAuthentication=no"
+      ],
+      "disk_user_paths": [
+        {
+          "user": "gpuwatch",
+          "path": "/tmp/gpuwatch"
+        }
+      ]
+    },
+    {
+      "name": "lab25",
+      "label": "lab25",
+      "display_ip": "198.51.100.25",
+      "lab": "nlp",
+      "expected_gpu_count": 1,
+      "note": "NVIDIA A100 80GB PCIe x1",
+      "owner": "공용",
+      "owner_type": "shared",
+      "location": "Data center",
+      "ssh_password_file": "secrets/nlp_password",
+      "ssh_options": [
+        "PreferredAuthentications=password,keyboard-interactive",
+        "PubkeyAuthentication=no"
+      ],
+      "disk_user_paths": [
+        {
+          "user": "gpuwatch",
+          "path": "/tmp/gpuwatch"
+        }
+      ]
+    },
+    {
+      "name": "lab26",
+      "label": "lab26",
+      "display_ip": "198.51.100.26",
+      "lab": "nlp",
+      "expected_gpu_count": 8,
+      "note": "NVIDIA RTX A6000 x8",
+      "owner": "공용",
+      "owner_type": "shared",
+      "location": "Data center",
+      "ssh_password_file": "secrets/nlp_password",
+      "ssh_options": [
+        "PreferredAuthentications=password,keyboard-interactive",
+        "PubkeyAuthentication=no"
+      ],
+      "disk_user_paths": [
+        {
+          "user": "gpuwatch",
+          "path": "/tmp/gpuwatch"
+        }
+      ]
+    },
+    {
+      "name": "lab27",
+      "label": "lab27",
+      "display_ip": "198.51.100.27",
+      "lab": "nlp",
+      "expected_gpu_count": 8,
+      "note": "NVIDIA RTX A6000 x8, gateway route",
+      "owner": "공용",
+      "owner_type": "shared",
+      "location": "Data center",
+      "ssh_password_file": "secrets/nlp_password",
+      "ssh_options": [
+        "PreferredAuthentications=password,keyboard-interactive",
+        "PubkeyAuthentication=no"
+      ],
+      "disk_user_paths": [
+        {
+          "user": "gpuwatch",
+          "path": "/tmp/gpuwatch"
+        }
+      ]
+    },
+    {
+      "name": "lab28",
+      "label": "lab28",
+      "display_ip": "198.51.100.28",
+      "lab": "nlp",
+      "expected_gpu_count": 8,
+      "note": "NVIDIA RTX A6000 x8, gateway route",
+      "owner": "공용",
+      "owner_type": "shared",
+      "location": "Server room",
+      "ssh_password_file": "secrets/nlp_password",
+      "ssh_options": [
+        "PreferredAuthentications=password,keyboard-interactive",
+        "PubkeyAuthentication=no"
+      ],
+      "disk_user_paths": [
+        {
+          "user": "gpuwatch",
+          "path": "/tmp/gpuwatch"
+        }
+      ]
+    },
+    {
+      "name": "atlas",
+      "label": "atlas",
+      "lab": "nll",
+      "expected_gpu_count": 4,
+      "note": "NVIDIA GeForce RTX 3090 x4",
+      "owner": "Alice",
+      "owner_type": "assigned",
+      "location": "Room 301",
+      "ssh_host": "192.0.2.11",
+      "ssh_user": "gpuwatch",
+      "ssh_port": 22,
+      "ssh_identity_file": "~/.ssh/id_ed25519"
+    },
+    {
+      "name": "boreas",
+      "label": "boreas",
+      "lab": "nll",
+      "expected_gpu_count": 2,
+      "note": "NVIDIA GeForce RTX 4090 x2, low disk",
+      "owner": "Bob",
+      "owner_type": "assigned",
+      "location": "Room 305",
+      "ssh_host": "192.0.2.12",
+      "ssh_user": "gpuwatch",
+      "ssh_port": 22,
+      "ssh_identity_file": "~/.ssh/id_ed25519"
+    },
+    {
+      "name": "cygnus",
+      "label": "cygnus",
+      "lab": "nll",
+      "expected_gpu_count": 2,
+      "note": "NVIDIA RTX A6000 x2",
+      "owner": "Carol",
+      "owner_type": "assigned",
+      "location": "Room 301",
+      "ssh_host": "192.0.2.13",
+      "ssh_user": "gpuwatch",
+      "ssh_port": 22,
+      "ssh_identity_file": "~/.ssh/id_ed25519"
+    },
+    {
+      "name": "draco",
+      "label": "draco",
+      "lab": "nll",
+      "expected_gpu_count": 3,
+      "note": "NVIDIA GeForce RTX 3090 x3",
+      "owner": "Dave",
+      "owner_type": "assigned",
+      "location": "Room 301",
+      "ssh_host": "192.0.2.14",
+      "ssh_user": "gpuwatch",
+      "ssh_port": 22,
+      "ssh_identity_file": "~/.ssh/id_ed25519"
+    },
+    {
+      "name": "eridanus",
+      "label": "eridanus",
+      "lab": "nll",
+      "expected_gpu_count": 1,
+      "note": "NVIDIA GeForce RTX 3090 x1",
+      "owner": "공용",
+      "owner_type": "shared",
+      "location": "Room 305",
+      "ssh_host": "192.0.2.15",
+      "ssh_user": "gpuwatch",
+      "ssh_port": 22,
+      "ssh_identity_file": "~/.ssh/id_ed25519"
+    },
+    {
+      "name": "fornax",
+      "label": "fornax",
+      "lab": "nll",
+      "expected_gpu_count": 2,
+      "note": "NVIDIA GeForce RTX 2080 Ti x2",
+      "owner": "공용",
+      "owner_type": "shared",
+      "location": "Room 301",
+      "ssh_host": "192.0.2.16",
+      "ssh_user": "gpuwatch",
+      "ssh_port": 22,
+      "ssh_identity_file": "~/.ssh/id_ed25519"
+    },
+    {
+      "name": "grus",
+      "label": "grus",
+      "lab": "nll",
+      "expected_gpu_count": 4,
+      "note": "NVIDIA GeForce RTX 3090 x4",
+      "owner": "Erin",
+      "owner_type": "assigned",
+      "location": "Room 301",
+      "ssh_host": "192.0.2.17",
+      "ssh_user": "gpuwatch",
+      "ssh_port": 22,
+      "ssh_identity_file": "~/.ssh/id_ed25519"
+    },
+    {
+      "name": "hydrus",
+      "label": "hydrus",
+      "lab": "nll",
+      "expected_gpu_count": 2,
+      "note": "NVIDIA RTX A6000 x2",
+      "owner": "Frank",
+      "owner_type": "assigned",
+      "location": "Server room",
+      "ssh_host": "192.0.2.18",
+      "ssh_user": "gpuwatch",
+      "ssh_port": 22,
+      "ssh_identity_file": "~/.ssh/id_ed25519"
+    },
+    {
+      "name": "indus",
+      "label": "indus",
+      "lab": "nll",
+      "expected_gpu_count": 4,
+      "note": "NVIDIA GeForce RTX 3090 x4",
+      "owner": "Grace",
+      "owner_type": "assigned",
+      "location": "Room 412",
+      "ssh_host": "192.0.2.10",
+      "ssh_user": "gpuwatch",
+      "ssh_port": 22,
+      "ssh_identity_file": "~/.ssh/id_ed25519"
+    },
+    {
+      "name": "lupus",
+      "label": "lupus",
+      "lab": "nll",
+      "expected_gpu_count": 4,
+      "note": "NVIDIA RTX A5000 x4, low disk",
+      "owner": "Heidi",
+      "owner_type": "assigned",
+      "location": "Room 412",
+      "ssh_host": "192.0.2.19",
+      "ssh_user": "gpuwatch",
+      "ssh_port": 22,
+      "ssh_identity_file": "~/.ssh/id_ed25519"
+    },
+    {
+      "name": "mensa",
+      "label": "mensa",
+      "lab": "nll",
+      "expected_gpu_count": 4,
+      "note": "NVIDIA RTX A5000 x4",
+      "owner": "Ivan",
+      "owner_type": "assigned",
+      "location": "Room 412",
+      "ssh_host": "192.0.2.20",
+      "ssh_user": "gpuwatch",
+      "ssh_port": 22,
+      "ssh_identity_file": "~/.ssh/id_ed25519"
+    },
+    {
+      "name": "norma",
+      "label": "norma",
+      "lab": "nll",
+      "expected_gpu_count": 1,
+      "note": "NVIDIA GeForce RTX 4080 SUPER x1",
+      "owner": "피지컬 AI 2",
+      "owner_type": "physical_ai_2",
+      "location": "Room 305",
+      "ssh_host": "192.0.2.21",
+      "ssh_user": "gpuwatch",
+      "ssh_port": 22,
+      "ssh_identity_file": "~/.ssh/id_ed25519"
+    },
+    {
+      "name": "octans",
+      "label": "octans",
+      "lab": "nll",
+      "expected_gpu_count": 2,
+      "note": "NVIDIA H200 NVL x2",
+      "owner": "공용",
+      "owner_type": "shared",
+      "location": "Server room",
+      "ssh_host": "192.0.2.22",
+      "ssh_user": "gpuwatch",
+      "ssh_port": 22,
+      "ssh_identity_file": "~/.ssh/id_ed25519"
+    },
+    {
+      "name": "pictor",
+      "label": "pictor",
+      "lab": "nll",
+      "expected_gpu_count": 2,
+      "note": "NVIDIA GeForce RTX 5090 x2",
+      "owner": "공용",
+      "owner_type": "shared",
+      "location": "Server room",
+      "ssh_host": "192.0.2.23",
+      "ssh_user": "gpuwatch",
+      "ssh_port": 22,
+      "ssh_identity_file": "~/.ssh/id_ed25519"
+    }
+  ]
+}

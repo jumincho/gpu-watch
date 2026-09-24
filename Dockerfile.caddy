@@ -1,0 +1,57 @@
+FROM golang:1.26.7-alpine3.24@sha256:28d89ee9cc0ff9fec75c82ca201e6bf7fdf9a679d4b7b24dfa04f2bb766bb468 AS builder
+
+LABEL org.opencontainers.image.title="GPU Watch Edge Builder" \
+      org.opencontainers.image.source="local"
+
+ENV CGO_ENABLED=0
+ENV GOMAXPROCS=2
+
+WORKDIR /src
+RUN go mod init gpu-watch-caddy \
+    && go get github.com/caddyserver/caddy/v2/cmd/caddy@b2693fb63a30e6d7be0972c3645e9a2c0a500e93 \
+    && go get \
+        github.com/go-chi/chi/v5@v5.3.1 \
+        github.com/google/cel-go@v0.30.0 \
+        github.com/klauspost/compress@v1.19.0 \
+        go.opentelemetry.io/contrib/bridges/prometheus@v0.69.0 \
+        go.opentelemetry.io/contrib/exporters/autoexport@v0.69.0 \
+        go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp@v0.69.0 \
+        go.opentelemetry.io/contrib/propagators/autoprop@v0.69.0 \
+        go.opentelemetry.io/otel@v1.44.0 \
+        go.opentelemetry.io/otel/sdk@v1.44.0 \
+        go.opentelemetry.io/otel/sdk/metric@v1.44.0 \
+        golang.org/x/crypto@v0.56.0 \
+        golang.org/x/net@v0.58.0 \
+        golang.org/x/text@v0.41.0 \
+        google.golang.org/grpc@v1.83.2 \
+    && go list -deps github.com/caddyserver/caddy/v2/cmd/caddy > /src/caddy-packages.txt \
+    && ! grep -q '^golang.org/x/crypto/openpgp' /src/caddy-packages.txt \
+    && go build -trimpath \
+        -ldflags="-s -w -X github.com/caddyserver/caddy/v2.CustomVersion=v2.11.4+gpuwatch.b2693fb" \
+        -o /go/bin/caddy github.com/caddyserver/caddy/v2/cmd/caddy
+
+FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
+
+ARG APP_UID=1000
+ARG APP_GID=1000
+ARG BUILD_VERSION=2.6
+ENV XDG_CONFIG_HOME=/config \
+    XDG_DATA_HOME=/data \
+    HOME=/tmp
+LABEL org.opencontainers.image.title="GPU Watch Edge" \
+      org.opencontainers.image.version="${BUILD_VERSION}" \
+      org.opencontainers.image.source="local"
+
+RUN apk upgrade --no-cache \
+    && apk add --no-cache ca-certificates
+
+COPY --from=builder /go/bin/caddy /usr/local/bin/caddy
+# Keep the exact compiled dependency graph so module-level scanner warnings
+# can be checked against packages present in this release (GO-2026-5932).
+COPY --from=builder /src/caddy-packages.txt /usr/local/share/gpu-watch/caddy-packages.txt
+
+USER ${APP_UID}:${APP_GID}
+HEALTHCHECK --interval=20s --timeout=10s --start-period=30s --retries=3 \
+    CMD ["wget", "-q", "-O", "/dev/null", "--header=Host: 192.0.2.10:8787", "http://127.0.0.1:8787/api/health"]
+ENTRYPOINT ["/usr/local/bin/caddy"]
+CMD ["run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]

@@ -1,0 +1,16 @@
+data/
+secrets/
+runtime-ssh/
+.runtime-ssh.*
+operator-secrets/
+.deploy.lock
+tests/
+__pycache__/
+*.py[cod]
+*.sqlite3
+*.sqlite3-*
+*.log
+.git/
+.partial-gpu-stage.*
+.venv/
+venv/

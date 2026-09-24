@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GPU Watch</title>
+    <link rel="icon" href="/favicon.svg?v=__GPU_WATCH_ASSET_VERSION__" type="image/svg+xml" />
+    <link rel="stylesheet" href="/styles.css?v=__GPU_WATCH_ASSET_VERSION__" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar-brand">
+        <h1>GPU WATCH <span class="title-eye" aria-hidden="true">👁️</span></h1>
+        <p id="statusLine">Loading...</p>
+      </div>
+      <section class="deadline-board" aria-label="목표 학회 마감 타이머">
+        <div class="deadline-list" id="deadlineWidgets">
+          <div class="deadline-empty">등록된 타이머 없음</div>
+        </div>
+        <button class="deadline-add-button" id="deadlineAddButton" type="button" aria-label="목표 학회 타이머 추가" title="타이머 추가 · 최대 6개">＋</button>
+      </section>
+      <nav class="header-links" aria-label="연구 참고 링크">
+        <a href="http://aideadlines.org/?sub=ML,CV,NLP,RO,SP,DM,AP,KR,HCI,IRSM,MISC" target="_blank" rel="noopener noreferrer" aria-label="AI Deadlines 새 탭에서 열기">
+          <img class="aideadlines-icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAADd0lEQVR4nLSXyWtUQRDGvzeLiYkJQUwiqOByUCPqSXFFcMvFePOvUMEFPKhornpQEPTkKV49xZMnQZToSUSiEIjBFVdwSTSaZMYq+itfv+fbBsaCH9Ovu7q6urq7uqeCqARCXTgunBRKQoX1NbYVkYB9VX+WfS+RwLcTpBh4KSxDc+V1ks1K7Nu8OyscFtqFtaz/ILxBMVki9NDWM2FKuBYb4+9HlujgT4SycFk4gWKiusfgQr9eeJqmWEqpL/N3WvjNcjf1q/xNwtq62eeX8DNmMyIVJMscfz8KX4X5wgrOqIZ0sbbl/NW+n2I2CzlgMim8EHqF1XDh/J7Tp5O6dfbN1M9yQEOmXj8UNgtdwiNkR0DFjh/Y17eVqJwmZmQYbrMGNFTNoezp34rZ+kfyTgFodFRYBTf7co6+zlQn9lzoE2aylLMiYO1q4CKioTWxmfpSp+4F9s0co0gELK3eE7bApdYKBwq8QQOvTdd+Owqk76IOqJGVwghchqshGhG7K/RXj+5WuCWIZL0040WkxAF0TR8Ibfyust1CrUlHozTq9ck13IgcFVrhHNfB66TKuhbhCBqQvB0NhDM5I5xCuNaDcBfWVeG9sBNu/Tex/S6SN25E8pbA1lBD/5h16sxB4XZMtx8uZ1hUN8JdQpn7IC8CNoMrwgZ+nxaGEIbdHi1jcHthP+sWCTeRE4WsCJjnS2lc134cLhpzCNffdC1T6qw1aelNqnfCK2REIWsTWtsA3G2oRq7DzdLywACps26GOgH7HMgbp8hdsIdlNT7MOi3rDTlEehGm3GGW6+zr22rIAUs2ffyegFsKC+cNuBuyi2XLhmPUVVmHnHxQyqjX9dSXzWIaHkc4m3PCPriZzrB8HuFMx9lHI9NDW6VGHFCPbaO1sW6CdbrLB+HOeplYXuinjkWgnTbmkBKF+DG0U6GzPiTsFXazTl82ehL0SC6gYbv7LfzqwDdhF9wTTif4g+V3cC+sIGlA/1uN3Re2sc4i4b+eZhE9WkGKDrw6tbkj1i/1STbplZOSVd5bMklnKkkpiA1k93cHXPh9HbuA9Kmdm+NjotG4g4QHqu/AGrj0Wabxt8I8uKd1p9dZ/16NoEnih6mNfBEWwm0cvd/1KLZQ9zNcqi1yi8Yl8VXsR0CPjKbPaQ7QSgc05B10YooONk2Kvoj+m/wBAAD//yJe0GYAAAAGSURBVAMA5hjVrppiOPcAAAAASUVORK5CYII=" alt="" aria-hidden="true" />
+          <span>AI Deadlines</span>
+        </a>
+        <a href="https://gist.github.com/Pusnow/6eb933355b5cb8d31ef1abcb3c3e1206" target="_blank" rel="noopener noreferrer">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.7a9.3 9.3 0 0 0-2.94 18.12c.47.09.64-.2.64-.45v-1.78c-2.62.57-3.17-1.11-3.17-1.11-.43-1.09-1.05-1.38-1.05-1.38-.86-.59.06-.58.06-.58.95.07 1.45.98 1.45.98.85 1.45 2.22 1.03 2.76.79.09-.61.33-1.03.6-1.27-2.09-.24-4.29-1.05-4.29-4.65 0-1.03.37-1.87.97-2.53-.1-.24-.42-1.2.09-2.49 0 0 .79-.25 2.56.97A8.9 8.9 0 0 1 12 6.98a8.8 8.8 0 0 1 2.33.31c1.78-1.22 2.56-.97 2.56-.97.51 1.29.19 2.25.09 2.49.61.66.97 1.5.97 2.53 0 3.61-2.2 4.4-4.3 4.64.34.29.64.87.64 1.75v2.64c0 .25.17.54.65.45A9.3 9.3 0 0 0 12 2.7Z"></path></svg>
+          <span>우수 학술대회 목록</span>
+        </a>
+      </nav>
+      <div class="top-actions">
+        <button id="refreshButton" type="button">Refresh</button>
+        <span id="updatedAt" class="muted">-</span>
+      </div>
+    </header>
+    <div id="staleBanner" class="stale-banner" role="status" hidden>데이터 갱신이 지연되고 있습니다. 마지막 정상 수집 시각을 확인해 주세요.</div>
+
+    <main>
+      <section class="lab-row">
+        <section class="lab-switcher" id="labSwitcher"></section>
+        <section class="notice-board" aria-label="공지 전광판">
+          <div class="notice-head">
+            <div>
+              <strong>전광판</strong>
+              <span id="noticeMeta" class="muted">공지 없음</span>
+            </div>
+            <button id="noticeOpenButton" class="small-button" type="button">공지 작성</button>
+          </div>
+          <div class="notice-items" id="noticeItems"></div>
+        </section>
+      </section>
+      <section class="summary-grid" id="summaryGrid"></section>
+      <section class="dashboard-tools" aria-label="서버 상태 도구">
+        <div class="activity-legend" id="activityLegend" aria-label="네온 상태 범례"></div>
+        <div class="host-filters" id="hostFilters" aria-label="서버 필터"></div>
+      </section>
+      <section class="host-grid" id="hostGrid"></section>
+      <section class="events-section" aria-labelledby="recentActivityTitle">
+        <div class="section-title">
+          <div>
+            <h2 id="recentActivityTitle">Recent Activity</h2>
+            <span class="muted" id="eventsMeta">보존된 free/busy · DOWN/UP 기록</span>
+          </div>
+          <div class="pager">
+            <button type="button" id="prevEventsButton">Prev</button>
+            <button type="button" id="nextEventsButton">Next</button>
+          </div>
+        </div>
+        <div class="event-filters">
+          <label>
+            <span>Date</span>
+            <input id="eventDateInput" type="date" />
+          </label>
+          <label>
+            <span>Server</span>
+            <select id="eventServerSelect"></select>
+          </label>
+          <label>
+            <span>User</span>
+            <input id="eventUserInput" type="search" placeholder="Search user" autocomplete="off" />
+          </label>
+          <label class="event-availability-toggle">
+            <input id="eventAvailabilityInput" type="checkbox" autocomplete="off" />
+            <span>UP·DOWN 포함</span>
+          </label>
+          <button type="button" id="resetEventFiltersButton">Reset</button>
+        </div>
+        <div class="events-table-wrap">
+          <table class="events-table" aria-labelledby="recentActivityTitle" aria-describedby="eventsMeta">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Server</th>
+                <th>GPU</th>
+                <th>Event</th>
+                <th>User</th>
+              </tr>
+            </thead>
+            <tbody id="eventsBody"></tbody>
+          </table>
+        </div>
+      </section>
+      <section class="lab-pulse" id="labPulse" aria-label="Lab Pulse" hidden></section>
+      <section class="service-watch" id="aiServiceWatch" aria-labelledby="serviceWatchTitle">
+        <div class="service-watch-heading">
+          <div>
+            <span class="eyebrow">사이트 모음</span>
+            <h2 id="serviceWatchTitle">서비스 상태 · Codex 사용량 · 이슈 체크 · AI 소식</h2>
+          </div>
+        </div>
+        <div class="service-watch-grid">
+          <section class="service-watch-group" aria-labelledby="officialServiceWatchTitle">
+            <h3 id="officialServiceWatchTitle">공식 서비스 상태</h3>
+            <a class="service-watch-link brand-openai" href="https://status.openai.com/" target="_blank" rel="noopener noreferrer" aria-label="OpenAI Status 열기 · 새 탭에서 열기">
+              <span class="service-watch-copy">
+                <strong class="service-watch-title">OpenAI Status <img class="service-watch-brand-icon" src="/brand-icons/openai-status.png?v=__GPU_WATCH_ASSET_VERSION__" alt="" aria-hidden="true" width="18" height="18" decoding="async"></strong>
+                <small>Codex를 포함한 OpenAI 서비스 상태</small>
+              </span>
+              <span class="service-watch-link-meta">
+                <span class="service-watch-badge official">공식</span>
+                <span class="service-watch-external" aria-hidden="true">↗</span>
+              </span>
+            </a>
+            <a class="service-watch-link brand-claude" href="https://status.claude.com/" target="_blank" rel="noopener noreferrer" aria-label="Claude Status 열기 · 새 탭에서 열기">
+              <span class="service-watch-copy">
+                <strong class="service-watch-title">Claude Status <span class="service-watch-icon-tile claude" aria-hidden="true"><img class="service-watch-brand-icon" src="/brand-icons/claude-status.png?v=__GPU_WATCH_ASSET_VERSION__" alt="" width="14" height="14" decoding="async"></span></strong>
+                <small>Claude Code를 포함한 Claude 서비스 상태</small>
+              </span>
+              <span class="service-watch-link-meta">
+                <span class="service-watch-badge official">공식</span>
+                <span class="service-watch-external" aria-hidden="true">↗</span>
+              </span>
+            </a>
+          </section>
+          <section class="service-watch-group" aria-labelledby="resetServiceWatchTitle">
+            <h3 id="resetServiceWatchTitle">Codex 사용량·기능 정보</h3>
+            <a class="service-watch-link brand-codex" href="https://www.codexrunway.com/" target="_blank" rel="noopener noreferrer" aria-label="CodexRunway 열기 · 새 탭에서 열기">
+              <span class="service-watch-copy">
+                <strong class="service-watch-title">CodexRunway <img class="service-watch-brand-icon codex" src="/brand-icons/codex.png?v=__GPU_WATCH_ASSET_VERSION__" alt="" aria-hidden="true" width="18" height="18" decoding="async"></strong>
+                <small>Codex 리셋 현황·이력과 사용량 확인용 macOS 메뉴 막대 앱</small>
+              </span>
+              <span class="service-watch-link-meta">
+                <span class="service-watch-external" aria-hidden="true">↗</span>
+              </span>
+            </a>
+            <a class="service-watch-link brand-codex" href="https://codex-resets.com/" target="_blank" rel="noopener noreferrer" aria-label="Codex Resets 열기 · 새 탭에서 열기">
+              <span class="service-watch-copy">
+                <strong class="service-watch-title">Codex Resets <img class="service-watch-brand-icon codex" src="/brand-icons/codex.png?v=__GPU_WATCH_ASSET_VERSION__" alt="" aria-hidden="true" width="18" height="18" decoding="async"></strong>
+                <small>사용량 한도 초기화 후 경과 시간 및 초기화 이력</small>
+              </span>
+              <span class="service-watch-link-meta">
+                <span class="service-watch-external" aria-hidden="true">↗</span>
+              </span>
+            </a>
+          </section>
+          <section class="service-watch-group" aria-labelledby="researchServiceWatchTitle">
+            <h3 id="researchServiceWatchTitle">학회 제출 사이트 이슈 체크</h3>
+            <a class="service-watch-link brand-reddit" href="https://www.reddit.com/r/MachineLearning/new/" target="_blank" rel="noopener noreferrer" aria-label="Reddit r/MachineLearning 최신 글 열기 · 새 탭에서 열기">
+              <span class="service-watch-copy">
+                <strong class="service-watch-title">r/MachineLearning · 최신 글 <span class="service-watch-icon-tile reddit" aria-hidden="true"><svg class="service-watch-reddit-icon" viewBox="0 0 24 24" focusable="false"><path d="M12 7.1c-3.9 0-7.1 2.3-7.1 5.2s3.2 5.2 7.1 5.2 7.1-2.3 7.1-5.2S15.9 7.1 12 7.1Z" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="m15.2 7.3.7-3.1 2.5.6" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><circle cx="19.7" cy="5.1" r="1.35" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="9.2" cy="11.7" r="1" fill="currentColor"/><circle cx="14.8" cy="11.7" r="1" fill="currentColor"/><path d="M8.8 14.3c.9.8 2 1.1 3.2 1.1s2.3-.3 3.2-1.1" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.25"/></svg></span></strong>
+                <small>학회 제출 사이트 장애 등 이슈 발생 시 참고</small>
+              </span>
+              <span class="service-watch-link-meta">
+                <span class="service-watch-external" aria-hidden="true">↗</span>
+              </span>
+            </a>
+          </section>
+          <section class="service-watch-group" aria-labelledby="newsServiceWatchTitle">
+            <h3 id="newsServiceWatchTitle">최신 AI 소식</h3>
+            <a class="service-watch-link brand-threads" href="https://www.threads.com/@choi.openai" target="_blank" rel="noopener noreferrer" aria-label="Threads @choi.openai 열기 · 새 탭에서 열기">
+              <span class="service-watch-copy">
+                <strong class="service-watch-title">@choi.openai <span class="service-watch-icon-tile threads" aria-hidden="true"><svg class="service-watch-threads-icon" viewBox="0 0 512 512" focusable="false"><path fill="currentColor" d="M356.235 241.543c-.482-55.779-30.721-89.392-81.8-89.392-34.096 0-62.769 15.421-77.827 39.998l33.01 23.012c8.554-13.494 20.36-24.698 42.045-24.698 24.457 0 37.106 13.614 40.721 38.914-11.806-1.806-23.615-2.77-35.782-2.77-66.021 0-97.102 29.876-97.102 69.391 0 40.239 31.081 63.851 76.863 63.851 50.237 0 80.236-33.852 92.524-75.779 12.77 5.784 21.566 19.276 21.566 39.515 0 54.215-62.527 83.73-115.536 83.73-78.188 0-129.269-51.321-129.269-134.809 0-102.283 67.586-167.821 158.424-167.821 60.96 0 91.079 26.745 111.56 62.647l33.731-23.613c-22.286-46.503-72.043-79.754-146.737-79.754-119.029 0-199.988 84.453-199.988 206.975 0 112.042 79.272 177.097 173.724 177.097 78.067 0 156.979-45.539 156.979-123.487 0-40.719-23.373-67.706-57.106-83.006ZM254.916 319.249c-17.227 0-32.409-8.191-32.409-23.252 0-23.733 29.157-30.961 57.709-30.961 10.842 0 21.445.722 30.842 2.77-6.748 30.842-26.745 51.442-56.142 51.442Z"/></svg></span></strong>
+                <small>최신 AI 뉴스 및 주요 업데이트 소식통</small>
+              </span>
+              <span class="service-watch-link-meta">
+                <span class="service-watch-external" aria-hidden="true">↗</span>
+              </span>
+            </a>
+          </section>
+        </div>
+      </section>
+      <section class="intelligence-index" id="intelligenceIndex" aria-labelledby="intelligenceIndexTitle" aria-busy="true">
+        <div class="intelligence-index-heading">
+          <div>
+            <span class="eyebrow">AI 모델 벤치마크 · 일일 갱신</span>
+            <h2 id="intelligenceIndexTitle">Artificial Analysis Intelligence Index</h2>
+          </div>
+          <a class="intelligence-index-source" href="https://artificialanalysis.ai/evaluations/artificial-analysis-intelligence-index" target="_blank" rel="noopener noreferrer" aria-label="Artificial Analysis Intelligence Index 전체 순위 열기 · 새 탭에서 열기">전체 순위 보기 <span aria-hidden="true">↗</span></a>
+        </div>
+        <div class="intelligence-index-meta">
+          <span class="intelligence-index-status loading" id="intelligenceIndexStatus">불러오는 중</span>
+          <span id="intelligenceIndexMeta">매일 갱신되는 독립 벤치마크입니다.</span>
+        </div>
+        <p class="intelligence-index-message" id="intelligenceIndexMessage" role="status" aria-live="polite">점수 데이터를 불러오는 중입니다.</p>
+        <div class="intelligence-model-list" id="intelligenceIndexTopModels" role="list" aria-label="Intelligence Index 상위 10개 모델"></div>
+        <details class="intelligence-index-more" id="intelligenceIndexMore" hidden>
+          <summary id="intelligenceIndexMoreSummary">11–29위 모델 보기</summary>
+          <div class="intelligence-model-list intelligence-model-list-extra" id="intelligenceIndexExtraModels" role="list" aria-label="Intelligence Index 11위부터 29위 모델"></div>
+        </details>
+        <div class="intelligence-index-attribution">
+          <span>Independently benchmarked by Artificial Analysis</span>
+          <a href="https://artificialanalysis.ai/methodology/intelligence-benchmarking" target="_blank" rel="noopener noreferrer" aria-label="Artificial Analysis Intelligence Benchmarking 평가 방법 열기 · 새 탭에서 열기">평가 방법 보기 <span aria-hidden="true">↗</span></a>
+        </div>
+      </section>
+      <footer class="site-footer">
+        <span>GPU Watch · Release v__GPU_WATCH_BUILD_VERSION__ · __GPU_WATCH_RELEASE_DATE__</span>
+        <span>Implemented by __GPU_WATCH_RELEASE_MODEL__ / Frontend design assisted by Claude Opus 5.5 Max</span>
+      </footer>
+    </main>
+
+    <dialog class="notice-dialog" id="noticeDialog" aria-labelledby="noticeDialogTitle">
+      <form class="notice-form" id="noticeForm" autocomplete="off">
+        <div class="notice-dialog-head">
+          <h2 id="noticeDialogTitle">공지 작성</h2>
+          <button id="noticeCancelButton" class="icon-button" type="button" aria-label="닫기">×</button>
+        </div>
+        <label>
+          <span>작성자</span>
+          <input id="noticeAuthorInput" type="text" maxlength="32" autocomplete="off" required />
+        </label>
+        <label>
+          <span>만료 시각 (선택)</span>
+          <input id="noticeExpiresInput" type="datetime-local" max="9999-12-31T23:59" autocomplete="off" />
+          <small>비워 두면 만료 없이 게시됩니다.</small>
+        </label>
+        <label>
+          <span>내용</span>
+          <textarea id="noticeMessageInput" maxlength="240" rows="4" autocomplete="off" required></textarea>
+        </label>
+        <label>
+          <span>공지 비밀번호 (4~64자)</span>
+          <input id="noticePinInput" type="password" autocomplete="off" minlength="4" maxlength="64" autocapitalize="none" spellcheck="false" required />
+          <small id="noticePinHelp">이 비밀번호로 본인이 등록한 공지를 수정·삭제할 수 있습니다. 관리자는 관리자 PIN으로 모든 공지를 관리할 수 있습니다.</small>
+        </label>
+        <div id="noticeFormMessage" class="form-message" aria-live="polite"></div>
+        <div class="notice-form-actions">
+          <button id="noticeSaveButton" type="submit">등록</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="notice-dialog deadline-dialog" id="deadlineDialog" aria-labelledby="deadlineDialogTitle">
+      <form class="notice-form" id="deadlineForm" autocomplete="off">
+        <div class="notice-dialog-head">
+          <h2 id="deadlineDialogTitle">타이머 추가</h2>
+          <button id="deadlineCancelButton" class="icon-button" type="button" aria-label="닫기">×</button>
+        </div>
+        <label>
+          <span>표시 이름</span>
+          <input id="deadlineTitleInput" type="text" maxlength="64" autocomplete="off" placeholder="AAAI 2027 · Full paper" required />
+        </label>
+        <label class="deadline-mode-control">
+          <input id="deadlineTbaInput" type="checkbox" autocomplete="off" />
+          <span>TBA · 일정 미정</span>
+        </label>
+        <label id="deadlineTbaTextLabel" hidden>
+          <span>예정 일정</span>
+          <input id="deadlineTbaTextInput" type="text" maxlength="32" autocomplete="off" placeholder="2027년 1월 예정" disabled />
+        </label>
+        <label id="deadlineAtLabel">
+          <span>마감 시각 (KST)</span>
+          <input id="deadlineAtInput" type="datetime-local" max="9999-12-31T23:59" autocomplete="off" required />
+        </label>
+        <label>
+          <span>연결 주소</span>
+          <input id="deadlineUrlInput" type="url" maxlength="500" autocomplete="url" placeholder="https://..." required />
+        </label>
+        <label>
+          <span>관리자 PIN (숫자 4자리)</span>
+          <input id="deadlinePinInput" type="password" inputmode="numeric" pattern="[0-9]{4}" autocomplete="off" minlength="4" maxlength="4" autocapitalize="none" spellcheck="false" required />
+        </label>
+        <div id="deadlineFormMessage" class="form-message" aria-live="polite"></div>
+        <div class="notice-form-actions deadline-form-actions">
+          <button id="deadlineDeleteButton" class="danger-button" type="button" hidden>삭제</button>
+          <button id="deadlineSaveButton" type="submit">저장</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="notice-dialog" id="noticeDeleteDialog" aria-labelledby="noticeDeleteDialogTitle">
+      <form class="notice-form" id="noticeDeleteForm" autocomplete="off">
+        <div class="notice-dialog-head">
+          <h2 id="noticeDeleteDialogTitle">공지 삭제</h2>
+          <button id="noticeDeleteCancelButton" class="icon-button" type="button" aria-label="닫기">×</button>
+        </div>
+        <p>등록할 때 정한 공지 비밀번호 또는 관리자 PIN을 입력해 주세요.</p>
+        <label>
+          <span>공지 비밀번호 또는 관리자 PIN</span>
+          <input id="noticeDeletePinInput" type="password" autocomplete="off" minlength="4" maxlength="64" autocapitalize="none" spellcheck="false" required />
+        </label>
+        <div id="noticeDeleteMessage" class="form-message" aria-live="polite"></div>
+        <div class="notice-form-actions">
+          <button id="noticeDeleteSubmitButton" type="submit">삭제</button>
+        </div>
+      </form>
+    </dialog>
+
+    <button id="scrollTopButton" class="scroll-top-button" type="button" aria-label="페이지 위로 이동" title="페이지 위로">↑</button>
+
+    <script src="/app.js?v=__GPU_WATCH_ASSET_VERSION__"></script>
+  </body>
+</html>
