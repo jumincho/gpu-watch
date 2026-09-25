@@ -106,7 +106,7 @@ const defaultActivityPolicy = {
   cold_min_session_seconds: 60,
 };
 const expandedProcessGroups = new Set();
-const INTELLIGENCE_INDEX_REFRESH_MS = 60 * 60 * 1000;
+const INTELLIGENCE_INDEX_REFRESH_MS = 5 * 60 * 1000;
 const INTELLIGENCE_INDEX_BOOTSTRAP_RETRY_MS = 30 * 1000;
 const MAX_DEADLINES = 6;
 const DEADLINE_TONE_ORDER = ["silver", "gold", "emerald", "diamond", "master", "grandmaster"];

@@ -8,7 +8,7 @@ RUN apk upgrade --no-cache \
     && python -m pip uninstall --yes pip setuptools wheel
 
 WORKDIR /app
-ARG BUILD_VERSION=2.6
+ARG BUILD_VERSION=3
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV GPU_WATCH_BUILD_VERSION=$BUILD_VERSION

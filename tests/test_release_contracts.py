@@ -180,7 +180,7 @@ class ReleaseContractTests(unittest.TestCase):
             html,
         )
         self.assertIn(
-            "Implemented by __GPU_WATCH_RELEASE_MODEL__ / Frontend design assisted by Claude Opus 5.5 Max",
+            "__GPU_WATCH_RELEASE_MODEL__ / Claude Opus 5.5 Max",
             html,
         )
         self.assertIn(
@@ -614,7 +614,7 @@ class ReleaseContractTests(unittest.TestCase):
             self.assertIn('rel="noopener noreferrer"', link.group(0))
             self.assertIn("새 탭에서 열기", link.group(0))
         self.assertIn('fetchJsonWithTimeout("/api/intelligence-index", { cache: "no-store" })', app)
-        self.assertIn("const INTELLIGENCE_INDEX_REFRESH_MS = 60 * 60 * 1000;", app)
+        self.assertIn("const INTELLIGENCE_INDEX_REFRESH_MS = 5 * 60 * 1000;", app)
         self.assertIn("window.setInterval(loadIntelligenceIndex, INTELLIGENCE_INDEX_REFRESH_MS);", app)
         self.assertIn("const INTELLIGENCE_INDEX_BOOTSTRAP_RETRY_MS = 30 * 1000;", app)
         self.assertIn("let intelligenceIndexBootstrapRetryScheduled = false;", app)
@@ -770,15 +770,15 @@ class ReleaseContractTests(unittest.TestCase):
         package = (ROOT / "gpu_watch" / "__init__.py").read_text(encoding="utf-8")
         deploy = (ROOT / "deploy.sh").read_text(encoding="utf-8")
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        self.assertEqual(version, "2.6")
-        self.assertIn('__version__ = "2.6"', package)
-        self.assertIn('__release_model__ = "GPT-6 Sol Max (Daybreak Blue)"', package)
-        self.assertIn('__release_date__ = "2026-09-23"', package)
+        self.assertEqual(version, "3")
+        self.assertIn('__version__ = "3"', package)
+        self.assertIn('__release_model__ = "GPT-6 Astra Max"', package)
+        self.assertIn('__release_date__ = "2026-09-25"', package)
         for filename in ("Dockerfile", "Dockerfile.caddy"):
             dockerfile = (ROOT / filename).read_text(encoding="utf-8")
-            self.assertIn("ARG BUILD_VERSION=2.6", dockerfile)
+            self.assertIn("ARG BUILD_VERSION=3", dockerfile)
             self.assertIn('org.opencontainers.image.version="$BUILD_VERSION"', dockerfile.replace('${BUILD_VERSION}', '$BUILD_VERSION'))
-        self.assertIn("# GPU Watch Dashboard v2.6", readme)
+        self.assertIn("# GPU Watch Dashboard v3", readme)
         self.assertIn("export PYTHONDONTWRITEBYTECODE=1", deploy)
         self.assertIn('VERSION_FILE="$ROOT/VERSION"', deploy)
         self.assertIn('BUILD_VERSION=$RELEASE_VERSION', deploy)
@@ -875,7 +875,7 @@ class ReleaseContractTests(unittest.TestCase):
         self.assertIn("github.com/go-chi/chi/v5@v5.3.1", edge_image)
         self.assertIn("github.com/google/cel-go@v0.30.0", edge_image)
         self.assertIn("github.com/klauspost/compress@v1.19.0", edge_image)
-        self.assertIn("go.opentelemetry.io/otel@v1.44.0", edge_image)
+        self.assertIn("go.opentelemetry.io/otel@v1.45.0", edge_image)
         self.assertIn("golang.org/x/net@v0.58.0", edge_image)
         self.assertIn("golang.org/x/text@v0.41.0", edge_image)
         self.assertIn("google.golang.org/grpc@v1.83.2", edge_image)

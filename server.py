@@ -567,6 +567,22 @@ def process_metadata(pid):
         return None
     except Exception:
         uid = None
+    # procfs can report a root-owned directory for a non-dumpable process.
+    # The effective UID in status is authoritative; directory ownership is a
+    # fallback only when that field cannot be read. Revalidation below still
+    # proves the PID generation before any owner is published.
+    try:
+        with open("/proc/%s/status" % pid, "r", encoding="utf-8", errors="replace") as f:
+            for line in f:
+                if line.startswith("Uid:"):
+                    fields = line.split()
+                    if len(fields) == 5 and all(value.isdigit() for value in fields[1:]):
+                        uid = int(fields[2])
+                    break
+    except (FileNotFoundError, ProcessLookupError):
+        return None
+    except Exception:
+        pass
     if uid is not None:
         try:
             result["user"] = pwd.getpwuid(uid).pw_name
@@ -4600,12 +4616,12 @@ class Collector:
         for host in due[:max(0, self.gpu_workers - len(self.gpu_futures))]:
             self.gpu_futures[host["name"]] = (
                 host, self.gpu_pool.submit(self.probe_host, host, False), time.monotonic())
-        # Stagger initial disk work behind each host's first successful GPU
-        # result, avoiding a second burst of SSH handshakes during startup.
+        # Stagger disk work behind the first completed GPU attempt. Disk must
+        # still refresh when SSH works but NVML is broken; an unavailable host
+        # costs at most one extra disk connection per disk interval.
         disk_hosts = [host for host in self.config["hosts"]
                       if host["name"] in self.host_next_probe_at
-                      and host["name"] not in self.gpu_futures
-                      and not self.host_failures.get(host["name"])]
+                      and host["name"] not in self.gpu_futures]
         self.start_due_disk_probes(disk_hosts)
 
     def consume_gpu_result(self, host: dict[str, Any], future: Any) -> None:
@@ -4677,6 +4693,8 @@ class Collector:
         # runtime fail before OpenSSH could start.  zlib is available in both
         # the local Python runtime and every supported remote Python 3 runtime,
         # and keeps the fixed remote command comfortably below that limit.
+        if include_disk and host.get("privileged_disk_helper"):
+            return "sudo -n /usr/local/libexec/gpu-watch-disk", float(self.config.get("ssh_disk_probe_timeout_seconds", 720))
         encoded = REMOTE_DISK_PROBE_B64_ZLIB if include_disk else REMOTE_PROBE_B64_ZLIB
         remote_timeout = int(self.config.get("remote_probe_command_timeout_seconds", 12))
         probe_args = (
@@ -4766,6 +4784,16 @@ class Collector:
     def probe_host(self, host: dict[str, Any], include_disk: bool = False) -> dict[str, Any]:
         started = time.monotonic()
         payload = self._probe_host_once(host, include_disk)
+        if include_disk and host.get("privileged_disk_helper") and not payload.get("ok"):
+            remaining = float(self.config.get("ssh_disk_probe_timeout_seconds", 720)) - (time.monotonic() - started)
+            # A missing helper after OS maintenance must not erase df. Retain
+            # a clearly partial unprivileged result within the same time budget.
+            if remaining >= 20 and not self.stop_event.is_set():
+                payload = self._probe_host_once(
+                    {**host, "privileged_disk_helper": False}, True, timeout_seconds=remaining)
+                if payload.get("ok") and isinstance(payload.get("disk"), dict):
+                    payload["disk"].setdefault("errors", []).append("user usage partial: privileged disk helper unavailable")
+            return payload
         # Internal provenance can never be supplied by remote JSON.
         payload.pop("_collection_retried", None)
         reason = retry_reason(payload)
@@ -5001,6 +5029,10 @@ def _validated_ssh_options(options: Any, name: str) -> list[str]:
 
 
 def _validate_host_options(host: dict[str, Any], name: str) -> None:
+    if "privileged_disk_helper" in host and type(host["privileged_disk_helper"]) is not bool:
+        raise ValueError(f"host {name!r} has invalid privileged_disk_helper")
+    if host.get("privileged_disk_helper") and host.get("disk_user_paths"):
+        raise ValueError("fixed disk helper does not accept custom paths")
     options = host.get("ssh_options", [])
     host["ssh_options"] = _validated_ssh_options(options, name)
     disk_paths = host.get("disk_user_paths", [])
@@ -5659,6 +5691,8 @@ class Handler(SimpleHTTPRequestHandler):
         if parsed.path == "/api/announcements":
             if not self.mutation_allowed("announcement-create", 5, 600):
                 return
+            if not self.acquire_auth_attempt("announcement-create"):
+                return
             try:
                 data = self.read_json_body()
                 notice = self.store.add_announcement(
@@ -5674,6 +5708,8 @@ class Handler(SimpleHTTPRequestHandler):
             except Exception:
                 self.send_json({"ok": False, "error": "공지 저장에 실패했습니다."}, 500)
                 return
+            finally:
+                AUTH_ATTEMPT_SEMAPHORE.release()
             audit("announcement_created", client=self.client_ip(), notice_id=notice["id"])
             self.send_json({"ok": True, "announcement": notice}, 201)
             return

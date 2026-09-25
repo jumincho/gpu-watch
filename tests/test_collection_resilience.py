@@ -35,7 +35,7 @@ class CollectionResilienceTests(unittest.TestCase):
         with mock.patch("server.now_ts", return_value=ts):
             self.collector.handle_payload(self.host, payload or self.payload())
 
-    def fail(self, ts):
+    def record_failure(self, ts):
         self.apply(ts, {"ok": False, "error": "ssh probe timeout after 45s"})
 
     def observation_events(self):
@@ -93,6 +93,7 @@ class CollectionResilienceTests(unittest.TestCase):
         with (
             mock.patch.object(self.collector, "_probe_host_once", side_effect=[failure.copy(), failure.copy()]) as probe,
             mock.patch.object(self.collector.stop_event, "wait", return_value=False),
+            mock.patch("server.time.monotonic", side_effect=[0, 0, 0.5]),
             mock.patch("server.audit"),
         ):
             result = self.collector.probe_host(self.host)
@@ -132,7 +133,7 @@ class CollectionResilienceTests(unittest.TestCase):
 
     def test_short_failure_burst_emits_down_up_immediately(self):
         self.apply(100)
-        for ts in [110,120,130]:self.fail(ts)
+        for ts in [110,120,130]:self.record_failure(ts)
         with mock.patch('server.now_ts',return_value=131):host=self.store.snapshot(self.config)['hosts'][0]
         self.assertEqual(host['availability_state'],'down')
         self.assertEqual(host['usage']['observed_seconds'],0)
@@ -142,10 +143,10 @@ class CollectionResilienceTests(unittest.TestCase):
     def test_sustained_loss_emits_one_pair_across_restart_with_cause(self):
         self.apply(100)
         for ts in [110, 120, 130, 159]:
-            self.fail(ts)
+            self.record_failure(ts)
         self.assertEqual(len(self.observation_events()), 1)
-        self.fail(160)
-        self.fail(180)
+        self.record_failure(160)
+        self.record_failure(180)
         self.assertEqual(len(self.observation_events()), 1)
         self.store = server.Store(self.store.path)
         collector = server.Collector(self.store, self.config)
@@ -160,9 +161,9 @@ class CollectionResilienceTests(unittest.TestCase):
         self.assertTrue(all(e["details"]["cause"] == "timeout" for e in self.observation_events()))
 
     def test_initial_and_intermittent_failure_pairs_have_no_seen_event(self):
-        for ts in [10,20,30,80]:self.fail(ts)
+        for ts in [10,20,30,80]:self.record_failure(ts)
         self.apply(100)
-        for ts in [110,130,150,170]:self.fail(ts);self.apply(ts+10)
+        for ts in [110,130,150,170]:self.record_failure(ts);self.apply(ts+10)
         self.assertEqual([e['event'] for e in reversed(self.observation_events())],['host_down','host_recovered']*5)
 
     def test_known_gpu_fault_is_published_without_collection_grace(self):
@@ -271,15 +272,31 @@ class CollectionResilienceTests(unittest.TestCase):
         self.assertEqual(reader.call_args.kwargs["timeout"], 17.25)
         self.assertEqual(self.collector.running_processes, set())
 
-    def test_loss_event_requires_both_count_and_duration(self):
+    def test_first_failure_emits_down_and_repeated_failures_do_not_duplicate(self):
         self.apply(100)
-        self.fail(200)
-        self.fail(250)
-        self.assertEqual(self.observation_events(), [])
-        self.fail(300)
+        self.record_failure(200)
+        self.assertEqual(len(self.observation_events()), 1)
+        self.assertEqual(self.observation_events()[0]["event"], "host_down")
+        self.record_failure(250)
+        self.record_failure(300)
         self.assertEqual(len(self.observation_events()), 1)
 
-    def test_initial_disk_work_waits_for_first_successful_gpu_result(self):
+    def test_disk_refreshes_after_failed_gpu_attempt_without_changing_down(self):
+        future = Future()
+        with (
+            mock.patch.object(self.collector.gpu_pool, "submit", return_value=future),
+            mock.patch.object(self.collector, "start_due_disk_probes") as disks,
+            mock.patch("server.time.monotonic", return_value=100),
+        ):
+            self.collector.collect_tick()
+            disks.assert_called_once_with([])
+            future.set_result({"ok": False, "error": "GPU device unavailable"})
+            self.collector.collect_tick()
+            self.assertEqual(disks.call_args.args[0], [self.host])
+            self.assertEqual(self.collector.host_failures["test"], 1)
+            self.assertFalse(self.store.snapshot(self.config)["hosts"][0]["online"])
+
+    def test_initial_disk_work_waits_for_first_completed_gpu_result(self):
         future = Future()
         with (
             mock.patch.object(self.collector.gpu_pool, "submit", return_value=future),
@@ -298,7 +315,7 @@ class CollectionResilienceTests(unittest.TestCase):
         self.apply(100)
         with mock.patch("server.time.monotonic", return_value=1000), mock.patch("server.audit"):
             for failures in range(1, 12):
-                self.fail(110 + failures * 10)
+                self.record_failure(110 + failures * 10)
                 if failures >= 3:
                     expected = min(60, 10 * 2 ** min(5, failures - 3))
                     self.assertEqual(self.collector.host_next_probe_at["test"], 1000 + expected)

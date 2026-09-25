@@ -106,6 +106,10 @@ class CollectorProbeTests(unittest.TestCase):
 
         def fake_open(path, mode="r", *args, **kwargs):
             path_text = str(path)
+            if path_text == "/proc/123/status":
+                if state["proc_owner_reads"] <= uid_failures:
+                    raise PermissionError("mock transient procfs denial")
+                return io.StringIO("Uid:\t1001\t1001\t1001\t1001\n")
             if path_text == "/proc/123/stat":
                 state["proc_identity_reads"] += 1
                 identity = "1000" if state["proc_identity_reads"] == 1 else final_identity

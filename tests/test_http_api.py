@@ -100,6 +100,14 @@ class IntelligenceIndexStub:
 
 
 class HttpApiTests(unittest.TestCase):
+    def test_notice_creation_obeys_hash_concurrency_limit(self):
+        headers = {"Content-Type": "application/json", "Origin": self.base_url}
+        with mock.patch("server.AUTH_ATTEMPT_SEMAPHORE") as slots:
+            slots.acquire.return_value = False
+            with self.request("/api/announcements", method="POST", body=b"{}", headers=headers) as response:
+                self.assertEqual(response.status, 429)
+            slots.release.assert_not_called()
+
 
     def test_tba_api_creation_conversion_and_validation(self):
         headers = {"Content-Type": "application/json", "Origin": self.base_url}
@@ -254,7 +262,7 @@ class HttpApiTests(unittest.TestCase):
                 body,
             )
             self.assertIn(
-                f"Implemented by {server.__release_model__} / Frontend design assisted by Claude Opus 5.5 Max",
+                f"{server.__release_model__} / Claude Opus 5.5 Max",
                 body,
             )
             self.assertNotIn("__GPU_WATCH_BUILD_VERSION__", body)

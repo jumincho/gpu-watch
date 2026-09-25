@@ -146,9 +146,9 @@ validate_application_data_directory() {
                 fi
                 ;;
             gpu_watch.sqlite3|gpu_watch.sqlite3-wal|gpu_watch.sqlite3-shm|gpu_watch.sqlite3-journal|\
-            admin_pin.hash|artificial_analysis_intelligence_index.json|.offsite-backup.lock|\
+            admin_pin.hash|artificial_analysis_intelligence_index.json|artificial_analysis_intelligence_index.quota.json|.offsite-backup.lock|\
             .gpu_watch.sqlite3.sanitize.tmp*|.gpu-watch-rollback-*.sqlite3*|\
-            .artificial_analysis_intelligence_index.json.*.tmp)
+            .artificial_analysis_intelligence_index.json.*.tmp|.artificial_analysis_intelligence_index.quota.json.*.tmp)
                 if [ ! -f "$data_entry" ]; then
                     echo "application data entry must be a regular file: $data_name" >&2
                     return 1

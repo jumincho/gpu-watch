@@ -18,6 +18,7 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from gpu_watch import __version__
 from gpu_watch.opslog import audit
+from gpu_watch.api_quota import ApiQuota
 
 
 API_URL = "https://artificialanalysis.ai/api/v2/language/models/free"
@@ -25,7 +26,7 @@ SOURCE_URL = "https://artificialanalysis.ai/evaluations/artificial-analysis-inte
 METHODOLOGY_URL = "https://artificialanalysis.ai/methodology/intelligence-benchmarking"
 CACHE_SCHEMA_VERSION = 1
 TOP_MODEL_LIMIT = 29
-REFRESH_INTERVAL_SECONDS = 6 * 60 * 60
+REFRESH_INTERVAL_SECONDS = 15 * 60  # Floor; response quota and page count determine actual cadence.
 STALE_AFTER_SECONDS = 48 * 60 * 60
 FAILURE_RETRY_INTERVAL_SECONDS = 60 * 60
 MAX_FETCH_ATTEMPTS = 3
@@ -146,15 +147,19 @@ class ArtificialAnalysisIndex:
         self._opener = opener or build_opener(_RejectRedirects()).open
         self._clock = clock or time.time
         self._sleeper = sleeper or time.sleep
+        self._quota = ApiQuota(self.cache_path.with_suffix(".quota.json"), self._clock)
         self._lock = threading.Lock()
         self._refreshing = False
         self._last_attempt_at: float | None = None
         self._cache = self._load_cache()
         if self._cache is not None:
             self._last_attempt_at = float(self._cache["fetched_at"])
-            self._next_attempt_at = float(self._cache["fetched_at"]) + self.refresh_interval_seconds
+            self._next_attempt_at = max(
+                self._quota.not_before,
+                float(self._cache["fetched_at"]) + self.refresh_interval_seconds,
+            )
         else:
-            self._next_attempt_at = 0.0
+            self._next_attempt_at = self._quota.not_before
 
     def _read_api_key(self) -> str | None:
         """Read on every attempt so key rotation never requires a service restart."""
@@ -294,9 +299,14 @@ class ArtificialAnalysisIndex:
             },
             method="GET",
         )
+        wait = self._quota.required_wait(1, reserve=False)
+        if wait:
+            raise ArtificialAnalysisFetchError("quota_deferred", transient=True, retry_after=wait)
+        self._quota.reserve_request()
         try:
             response = self._opener(request, timeout=self.request_timeout_seconds)
         except HTTPError as exc:
+            self._quota.observe(exc.headers)
             status = int(exc.code)
             failure = ArtificialAnalysisFetchError(
                 "upstream_http",
@@ -321,6 +331,7 @@ class ArtificialAnalysisIndex:
                         retry_after=self._retry_after(getattr(response, "headers", None), now=self._clock()),
                     )
                 headers = getattr(response, "headers", None)
+                self._quota.observe(headers)
                 try:
                     declared_size = int(headers.get("Content-Length")) if headers is not None else 0
                 except (TypeError, ValueError):
@@ -405,6 +416,9 @@ class ArtificialAnalysisIndex:
         return models, total_pages, index_version
 
     def _fetch_all(self, api_key: str) -> dict[str, Any]:
+        wait = self._quota.required_wait(self._quota.pages)
+        if wait:
+            raise ArtificialAnalysisFetchError("quota_deferred", transient=True, retry_after=wait)
         all_models: list[dict[str, Any]] = []
         expected_pages: int | None = None
         expected_version: str | None = None
@@ -419,6 +433,11 @@ class ArtificialAnalysisIndex:
             if expected_pages is None:
                 expected_pages = total_pages
                 expected_version = index_version
+                self._quota.pages = total_pages
+                self._quota.save()
+                wait = self._quota.required_wait(total_pages - 1)
+                if wait:
+                    raise ArtificialAnalysisFetchError("quota_deferred", transient=True, retry_after=wait)
             all_models.extend(page_models)
             if page == total_pages:
                 break
@@ -493,7 +512,8 @@ class ArtificialAnalysisIndex:
             self._persist_cache(fresh)
             with self._lock:
                 self._cache = fresh
-                self._next_attempt_at = float(fresh["fetched_at"]) + self.refresh_interval_seconds
+                self._next_attempt_at = float(fresh["fetched_at"]) + self._quota.next_delay(self.refresh_interval_seconds)
+                self._quota.schedule(self._next_attempt_at)
             audit(
                 "artificial_analysis_refreshed",
                 models=fresh["total_models"],
@@ -508,7 +528,11 @@ class ArtificialAnalysisIndex:
             if isinstance(exc, ArtificialAnalysisFetchError) and exc.retry_after is not None:
                 retry_delay = max(retry_delay, exc.retry_after)
             with self._lock:
-                self._next_attempt_at = attempted_at + retry_delay
+                self._next_attempt_at = self._clock() + retry_delay
+                try:
+                    self._quota.schedule(self._next_attempt_at)
+                except OSError:
+                    pass
             audit("artificial_analysis_refresh_failed", category=category)
             return False
         finally:
