@@ -24,7 +24,7 @@
 - **Artificial Analysis 的刷新遵循 API 配额**：刷新间隔由响应中的速率限制头决定，不再固定为 6 小时。
 - **安全加固**：创建公告也与密码哈希共用同一个并发上限；Caddy 构建固定使用已修复的 OpenTelemetry 模块。
 - **所有文件均以 LF 换行检出**，因此 Linux 生产环境与 Windows 副本的发布指纹一致。
-- **界面细节调整**：计时器的剩余时间位于卡片的垂直中央，较长的计时器标题也会优先完整显示。手机上的 Intelligence Index 更紧凑，韩语按词换行。
+- **界面细节调整**：计时器的剩余时间位于卡片的垂直中央。较长的标题优先显示，必要时将剩余时间分成两行；仍放不下的标题使用省略号，悬停时显示全文。手机上的 Intelligence Index 更紧凑，韩语按词换行。
 
 ## 功能
 
@@ -55,7 +55,7 @@
 ### 日常使用
 
 - 默认每 10 秒自动刷新。刷新时会保留所选标签页、滚动位置和键盘焦点，页面在后台时会放慢刷新频率。数据停止更新时会显示提示横幅。
-- 支持宽度低至 320px 的屏幕，可完全使用键盘操作，并遵循系统的“减少动态效果”设置。配色符合 WCAG 2.2 AA 的对比度要求。
+- 支持宽度低至 320px 的屏幕、键盘导航及系统的“减少动态效果”设置。发布检查涵盖文字对比度、焦点可见性及不同屏幕宽度的布局。
 
 ## 工作原理
 
@@ -86,7 +86,7 @@ Browser ──HTTP──▶ Caddy  (IP allowlist, compression)
 
 - **访问控制。** Caddy 执行 IP 白名单。应用本身也会再次独立校验客户端 IP、`Host` 和 `Origin`。
 - **写操作。** 修改公告和计时器需要同源请求以及密码或 PIN。哈希采用迭代 600,000 次的 PBKDF2-SHA256。哈希校验最多同时进行 2 个，失败的尝试会按子网和全局两个维度进行速率限制。
-- **绝不发送到浏览器的内容。** 远程命令、stderr、完整命令行、环境变量、SSH 用户名、端口和密码。服务器卡片只显示经过校验的 IP 地址。
+- **有限的进程信息。** 不向浏览器发送完整命令行、环境变量或凭据，仅提供经过清理的简短摘要。运行错误会限制长度并隐去敏感值，但可能包含主机地址或端口，因此不能用来隐藏网络结构。服务器卡片会按设计显示经过校验的 IP 地址。
 - **浏览器防护。** 严格的内容安全策略（CSP）会阻止内联脚本。图标和国旗均由本地提供，不从第三方主机加载。
 - **容器。** 以非 root 用户运行，根文件系统只读，移除全部 capabilities，并启用 `no-new-privileges` 以及 PID、内存和日志限制。
 - **机密信息。** SSH 密码、API 密钥和 PIN 哈希只存放在被 git 忽略的运行时目录（`secrets/`、`data/`、`operator-secrets/`）中，从不进入仓库。SSH 密码通过 `SSH_ASKPASS` 交给 OpenSSH，而不是放在命令行上。
@@ -170,7 +170,7 @@ python3 server.py --host 0.0.0.0 --port 8787
 | `collect_docker_usage` | 同时用 `docker ps --size` 测量 Docker 可写层。默认仅对 `nll` 实验室的主机开启。 |
 | `privileged_disk_helper` | 通过已安装的 root 助手测量磁盘用量。不能与 `disk_user_paths` 同时使用。 |
 
-其他顶层设置还包括探测超时、`collector_workers`、决定 🔥 和 ❄️ 徽章阈值的 `activity_policy`，以及保留期限。默认情况下，事件保留 180 天，公告保留 90 天，每日备份保留 14 天。
+其他顶层设置还包括探测超时、`collector_workers`、决定 🔥 和 ❄️ 徽章阈值的 `activity_policy`，以及保留期限。默认情况下，事件保留 180 天，每日备份保留 14 天。公告在删除或到期 90 天后清理；未设到期日期的公告会一直保留，直到被删除。
 
 ### 环境变量
 
@@ -209,7 +209,7 @@ sudo python3 -I disk-installer.py
 
 安装脚本会创建 `/usr/local/libexec/gpu-watch-disk`、一条只允许监控账号不带参数运行该助手的 sudoers 规则，以及 `/var/cache/gpu-watch/` 缓存目录。助手不接受任何路径、命令或环境变量输入。它会阻止并发扫描，将结果缓存 5 分钟，并以较低的 CPU 优先级运行。不会安装守护进程，也不会保存管理员密码。
 
-安装完成后，为该主机设置 `"privileged_disk_helper": true`。如果助手不存在，GPU Watch 会在同一时间预算内改用普通权限扫描，并把按用户的用量标记为部分统计。
+公开示例默认不启用 helper：省略 `privileged_disk_helper` 或设为 false 时不会使用 sudo。安装后，仅为该主机设置 `"privileged_disk_helper": true`。若找不到 helper，GPU Watch 会在相同的时间预算内退回普通权限统计，并将用户用量标为部分统计。
 
 ## 部署
 
@@ -217,13 +217,13 @@ sudo python3 -I disk-installer.py
 
 - `Dockerfile` 基于以摘要固定的 `python:3.12-alpine` 镜像构建应用。
 - `Dockerfile.caddy` 使用固定的提交和固定的依赖版本构建 Caddy。
-- `deploy.sh` 是实验室生产主机的部署脚本。它先检查路径和权限，然后创建带校验和的 SQLite 在线备份。接着构建两个镜像，并验证候选容器（health、snapshot、collector）。在保留旧容器的前提下切换生产环境，检查白名单和运行状态，失败时自动回滚。若要在其他环境使用，请先修改与主机相关的路径和地址。
+- `deploy.sh` 是实验室生产主机的部署脚本。它检查路径和权限、构建两个镜像，并验证 SSH 和 Caddy 配置。切换前会停止应用，创建并验证 SQLite 在线备份。它保留旧容器，检查新部署的 health 和访问控制，失败时回滚。若要在其他环境使用，请先修改与主机相关的路径和地址。
 
 发布指纹是对 `VERSION`、`server.py`、`hosts.json`、`gpu_watch/` 和 `static/` 计算的哈希。生产环境和应急副本的指纹必须一致。
 
 ### Windows 应急备用
 
-`emergency-local-fallback.ps1 -Action Status|Start|Stop` 仅在生产环境宕机时运行本地副本。只要能连上生产环境，不加 `-Force` 时 `Start` 就会拒绝执行。此外还要求 `VERSION` 和发布指纹一致，并确认有一次新的采集周期。防火墙只对实验室局域网开放。`Stop` 会移除监听端口、防火墙规则和临时密码文件。本地数据库是独立的，因此在切回生产环境之前，请核对宕机期间新建的公告和计时器。
+`emergency-local-fallback.ps1 -Action Status|Start|Stop` 管理 Windows 应急副本。请先按自己的环境调整参考路径、生产地址、SSH 配置和 LAN 范围。除非传入 `-Force`，否则生产服务能响应时 `Start` 会拒绝启动。它检查 `VERSION`、release fingerprint 和新一轮采集结果，并将防火墙规则限定在配置的 LAN 范围。`Stop` 会移除它创建的监听器、防火墙规则和临时密码文件。本地数据库独立存在，因此切回前应核对故障期间创建的公告和计时器。
 
 ## 运维
 
@@ -234,8 +234,8 @@ docker exec gpu-watch-dashboard python3 /app/scripts/check_local.py --health-onl
 # 检查 SQLite 完整性和聚合不变量
 python3 scripts/audit-data.py data/gpu_watch.sqlite3
 
-# 从本地备份恢复（会校验目标路径和校验和）
-sh scripts/restore-backup.sh /absolute/path/to/backup.sqlite3
+# 恢复 data/backups 内的备份（校验路径、SQLite 完整性、外键及架构）
+sh scripts/restore-backup.sh "$PWD/data/backups/backup.sqlite3"
 ```
 
 维护任务每天创建 SQLite 备份，`deploy.sh` 每次部署前还会额外备份一次。没有自动异地备份；`scripts/offsite-backup.sh` 是手动工具。
@@ -265,7 +265,7 @@ node tests/test_frontend.js                # 前端逻辑契约测试
 
 ## 发布信息
 
-v3，于 2026-09-25 发布。界面页脚显示 `GPT-6 Astra Max / Claude Opus 5.5 Max`。
+v3，于 2026-09-25 发布。界面页脚显示 `GPT-6 Astra Max (전체 구현) · Claude Opus 5.5 Max (프론트 개선)`。
 
 ## 致谢
 

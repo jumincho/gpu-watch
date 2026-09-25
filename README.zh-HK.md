@@ -24,7 +24,7 @@
 - **Artificial Analysis 的更新依從 API 配額**：更新間隔由回應中的速率限制標頭決定，不再固定為 6 小時。
 - **安全強化**：建立告示亦與密碼雜湊共用同一個並行上限；Caddy 建置固定使用已修補的 OpenTelemetry 模組。
 - **所有檔案均以 LF 換行取出**，因此 Linux 正式環境與 Windows 副本的發佈指紋一致。
-- **介面細節調整**：計時器的剩餘時間位於卡片的垂直中央，較長的計時器標題亦會優先完整顯示。手機上的 Intelligence Index 更緊湊，韓文按詞換行。
+- **介面細節調整**：計時器的剩餘時間位於卡片的垂直中央。較長的標題優先顯示，必要時將剩餘時間分成兩行；仍放不下的標題使用省略號，滑鼠移上時顯示全文。手機上的 Intelligence Index 更緊湊，韓文按詞換行。
 
 ## 功能
 
@@ -55,7 +55,7 @@
 ### 日常使用
 
 - 預設每 10 秒自動更新。更新時會保留已選的分頁、滾動位置及鍵盤焦點，頁面在背景時會放慢更新頻率。數據停止更新時會顯示提示橫幅。
-- 支援闊度低至 320px 的屏幕，可完全以鍵盤操作，並依從系統的「減少動態效果」設定。配色符合 WCAG 2.2 AA 的對比度要求。
+- 支援闊度低至 320px 的屏幕、鍵盤導覽及系統的「減少動態效果」設定。發佈檢查涵蓋文字對比度、焦點可見性及不同屏幕闊度的版面。
 
 ## 運作原理
 
@@ -86,7 +86,7 @@ Browser ──HTTP──▶ Caddy  (IP allowlist, compression)
 
 - **存取控制。** Caddy 執行 IP 白名單。應用程式本身亦會再次獨立核對用戶端 IP、`Host` 及 `Origin`。
 - **寫入操作。** 修改告示及計時器需要同源請求，以及密碼或 PIN。雜湊採用迭代 600,000 次的 PBKDF2-SHA256。雜湊核對最多同時進行 2 個，失敗的嘗試會按子網絡及整體兩方面進行速率限制。
-- **絕不傳送到瀏覽器的內容。** 遠端指令、stderr、完整指令行、環境變數、SSH 用戶名稱、連接埠及密碼。伺服器卡片只顯示經核實的 IP 地址。
+- **有限的程序資訊。** 不向瀏覽器傳送完整指令行、環境變數或憑證，只提供經清理的簡短摘要。運作錯誤會限制長度並遮蔽敏感值，但可能包含主機地址或連接埠，因此不能用來隱藏網絡結構。伺服器卡片會按設計顯示經核實的 IP 地址。
 - **瀏覽器防護。** 嚴格的內容安全政策（CSP）會封鎖內嵌指令碼。圖示及國旗均由本機提供，不會從第三方主機載入。
 - **容器。** 以非 root 用戶執行，根檔案系統唯讀，移除所有 capabilities，並啟用 `no-new-privileges` 以及 PID、記憶體及日誌限制。
 - **機密資料。** SSH 密碼、API 金鑰及 PIN 雜湊只存放於被 git 忽略的執行期資料夾（`secrets/`、`data/`、`operator-secrets/`），從不放入儲存庫。SSH 密碼透過 `SSH_ASKPASS` 交給 OpenSSH，而不會放在指令行上。
@@ -170,7 +170,7 @@ python3 server.py --host 0.0.0.0 --port 8787
 | `collect_docker_usage` | 同時以 `docker ps --size` 量度 Docker 可寫層。預設只為 `nll` 實驗室的主機啟用。 |
 | `privileged_disk_helper` | 透過已安裝的 root 輔助程式量度磁碟用量。不可與 `disk_user_paths` 同時使用。 |
 
-其他頂層設定還包括探測逾時、`collector_workers`、決定 🔥 及 ❄️ 徽章門檻的 `activity_policy`，以及保留期限。預設情況下，事件保留 180 日，告示保留 90 日，每日備份保留 14 日。
+其他頂層設定還包括探測逾時、`collector_workers`、決定 🔥 及 ❄️ 徽章門檻的 `activity_policy`，以及保留期限。預設情況下，事件保留 180 日，每日備份保留 14 日。告示在刪除或到期 90 日後清理；沒有到期日期的告示會一直保留，直到被刪除。
 
 ### 環境變數
 
@@ -209,7 +209,7 @@ sudo python3 -I disk-installer.py
 
 安裝腳本會建立 `/usr/local/libexec/gpu-watch-disk`、一條只容許監察帳戶不帶參數執行該輔助程式的 sudoers 規則，以及 `/var/cache/gpu-watch/` 快取資料夾。輔助程式不接受任何路徑、指令或環境變數輸入。它會防止並行掃描，把結果快取 5 分鐘，並以較低的 CPU 優先次序運行。不會安裝常駐服務，亦不會儲存管理員密碼。
 
-安裝後，為該主機設定 `"privileged_disk_helper": true`。如輔助程式不存在，GPU Watch 會在同一時間預算內改用一般權限掃描，並把按用戶的用量標示為部分統計。
+公開範例預設不啟用 helper：省略 `privileged_disk_helper` 或設為 false 時不會使用 sudo。安裝後，只為該主機設定 `"privileged_disk_helper": true`。如找不到 helper，GPU Watch 會在相同的時間預算內退回一般權限統計，並將用戶用量標為部分統計。
 
 ## 部署
 
@@ -217,13 +217,13 @@ sudo python3 -I disk-installer.py
 
 - `Dockerfile` 以按摘要固定的 `python:3.12-alpine` 映像建置應用程式。
 - `Dockerfile.caddy` 以固定的 commit 及固定的依賴版本建置 Caddy。
-- `deploy.sh` 是實驗室正式主機的部署腳本。它先檢查路徑及權限，再建立附校驗碼的 SQLite 線上備份。然後建置兩個映像，並驗證候選容器（health、snapshot、collector）。在保留舊容器的情況下切換正式環境，檢查白名單及運作狀態，失敗時會自動復原。如要在其他環境使用，請先修改與主機相關的路徑及地址。
+- `deploy.sh` 是實驗室正式主機的部署腳本。它檢查路徑及權限、建置兩個映像，並驗證 SSH 和 Caddy 設定。切換前會停止應用程式，建立及驗證 SQLite 線上備份。它保留舊容器，檢查新部署的 health 和存取控制，失敗時復原。如要在其他環境使用，請先修改與主機相關的路徑及地址。
 
 發佈指紋是對 `VERSION`、`server.py`、`hosts.json`、`gpu_watch/` 及 `static/` 計算的雜湊。正式環境與緊急副本的指紋必須一致。
 
 ### Windows 緊急後備
 
-`emergency-local-fallback.ps1 -Action Status|Start|Stop` 只會在正式環境停止運作時執行本機副本。只要能連上正式環境，不加 `-Force` 時 `Start` 便會拒絕執行。此外，`VERSION` 與發佈指紋必須一致，並須確認有一次新的收集週期。防火牆只對實驗室區域網絡開放。`Stop` 會移除監聽程式、防火牆規則及臨時密碼檔案。本機資料庫是獨立的，因此在切換回正式環境前，請核對停機期間新增的告示及計時器。
+`emergency-local-fallback.ps1 -Action Status|Start|Stop` 管理 Windows 緊急副本。請先按自己的環境調整參考路徑、正式地址、SSH 設定及 LAN 範圍。除非傳入 `-Force`，否則正式服務能回應時 `Start` 會拒絕啟動。它檢查 `VERSION`、release fingerprint 及新一輪收集結果，並將防火牆規則限定於設定的 LAN 範圍。`Stop` 會移除它建立的監聽程序、防火牆規則及臨時密碼檔。本機資料庫獨立存在，因此切回前應核對故障期間建立的告示及計時器。
 
 ## 營運
 
@@ -234,8 +234,8 @@ docker exec gpu-watch-dashboard python3 /app/scripts/check_local.py --health-onl
 # 檢查 SQLite 完整性及彙總不變量
 python3 scripts/audit-data.py data/gpu_watch.sqlite3
 
-# 從本機備份還原（會核對目標路徑及校驗碼）
-sh scripts/restore-backup.sh /absolute/path/to/backup.sqlite3
+# 還原 data/backups 內的備份（核對路徑、SQLite 完整性、外鍵及結構）
+sh scripts/restore-backup.sh "$PWD/data/backups/backup.sqlite3"
 ```
 
 維護工作每日建立 SQLite 備份，`deploy.sh` 每次部署前亦會額外備份一次。系統沒有自動異地備份；`scripts/offsite-backup.sh` 是手動工具。
@@ -265,7 +265,7 @@ node tests/test_frontend.js                # 前端邏輯契約測試
 
 ## 發佈資訊
 
-v3，於 2026-09-25 發佈。介面頁尾顯示 `GPT-6 Astra Max / Claude Opus 5.5 Max`。
+v3，於 2026-09-25 發佈。介面頁尾顯示 `GPT-6 Astra Max (전체 구현) · Claude Opus 5.5 Max (프론트 개선)`。
 
 ## 鳴謝
 

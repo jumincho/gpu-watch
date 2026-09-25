@@ -24,7 +24,7 @@ Before starting a job on a shared server, people usually need three answers: whi
 - **Artificial Analysis refreshes follow the API quota.** The interval comes from the response's rate-limit headers instead of a fixed six hours.
 - **Hardening.** Creating a notice now shares the password-hashing concurrency limit, and the Caddy build pins patched OpenTelemetry modules.
 - **LF line endings everywhere**, so the release fingerprint of a Linux deployment and a Windows copy match.
-- **Interface polish.** Timer countdowns sit on the vertical centre of their cards and long timer titles keep their text. On phones the Intelligence Index is more compact, and Korean text wraps between words.
+- **Interface polish.** Timer countdowns sit on the vertical centre of their cards. Long titles get priority over a single-line countdown; titles that still overflow use an ellipsis, with the full title available on hover. On phones the Intelligence Index is more compact, and Korean text wraps between words.
 
 ## Features
 
@@ -55,7 +55,7 @@ Before starting a job on a shared server, people usually need three answers: whi
 ### Everyday use
 
 - Automatic refresh every 10 seconds by default. Refreshing keeps the selected tabs, scroll position, and keyboard focus, and it slows down in background tabs. A banner appears when data stops updating.
-- Works on screens as narrow as 320 px, supports full keyboard use, and respects reduced-motion settings. Colors meet WCAG 2.2 AA contrast.
+- Works on screens as narrow as 320 px, supports keyboard navigation, and respects reduced-motion settings. Text contrast, focus visibility, and responsive layout are checked during release review.
 
 ## How it works
 
@@ -86,7 +86,7 @@ Browser ──HTTP──▶ Caddy  (IP allowlist, compression)
 
 - **Access control.** Caddy enforces an IP allowlist. The app checks the client IP, `Host`, and `Origin` again on its own.
 - **Writes.** Changes to notices and timers require a same-origin request and a passphrase or PIN. Hashes use PBKDF2-SHA256 with 600,000 iterations. At most two hash checks run at once, and failed attempts are rate-limited per subnet and globally.
-- **What the browser never receives.** Remote commands, stderr, full command lines, environment variables, SSH users, ports, and passwords. Server cards show only a validated IP address.
+- **Limited process details.** Full command lines, environment variables, and credentials are not sent to the browser. Process details use a short sanitized summary. Operational errors are bounded and redacted, but can contain host addresses or ports; they are not a promise of hiding network topology. Server cards intentionally show a validated IP address.
 - **Browser hardening.** A strict Content Security Policy blocks inline scripts. Icons and flags are served locally, not from third-party hosts.
 - **Containers.** They run as a non-root user with a read-only root filesystem, all capabilities dropped, `no-new-privileges`, and PID, memory, and log limits.
 - **Secrets.** SSH passwords, API keys, and the PIN hash live in git-ignored runtime folders (`secrets/`, `data/`, `operator-secrets/`), never in the repository. SSH passwords go to OpenSSH through `SSH_ASKPASS`, not on the command line.
@@ -170,7 +170,7 @@ The bundled `hosts.json` describes a fictional lab. Replace it with your own ser
 | `collect_docker_usage` | Also measure Docker writable layers with `docker ps --size`. On by default only for hosts in the `nll` lab. |
 | `privileged_disk_helper` | Measure disk usage through the installed root helper. Cannot be combined with `disk_user_paths`. |
 
-Other top-level settings include probe timeouts, `collector_workers`, the `activity_policy` thresholds for the 🔥 and ❄️ badges, and retention periods. Events are kept for 180 days, notices for 90 days, and daily backups for 14 days by default.
+Other top-level settings include probe timeouts, `collector_workers`, the `activity_policy` thresholds for the 🔥 and ❄️ badges, and retention periods. Events are kept for 180 days and daily backups for 14 days by default. Notices are purged 90 days after deletion or expiry; notices without an expiry remain until deleted.
 
 ### Environment variables
 
@@ -209,7 +209,7 @@ sudo python3 -I disk-installer.py
 
 The installer adds `/usr/local/libexec/gpu-watch-disk`, a sudoers rule that lets the monitoring account run exactly that helper with no arguments, and a cache folder in `/var/cache/gpu-watch/`. The helper accepts no paths, commands, or environment. It prevents concurrent scans, caches results for five minutes, and runs at low CPU priority. No daemon is installed, and no administrator password is stored.
 
-After installing, set `"privileged_disk_helper": true` for that host. If the helper is missing, GPU Watch falls back to an unprivileged scan within the same time budget and marks per-user usage as partial.
+The example configuration leaves the helper disabled: an omitted or false `privileged_disk_helper` does not use sudo. After installing, set `"privileged_disk_helper": true` only for that host. If the helper is missing, GPU Watch falls back to an unprivileged scan within the same time budget and marks per-user usage as partial.
 
 ## Deployment
 
@@ -217,13 +217,13 @@ The reference production setup runs two hardened containers. Caddy is the only p
 
 - `Dockerfile` builds the app on a digest-pinned `python:3.12-alpine` image.
 - `Dockerfile.caddy` builds Caddy from a pinned commit and pinned dependency versions.
-- `deploy.sh` is the deployment script for the lab's production host. It checks paths and permissions, then makes an online SQLite backup with a checksum. Next it builds both images and validates a candidate container (health, snapshot, collector). It switches production while keeping the previous container, checks the allowlist and health, and rolls back automatically on failure. To reuse it elsewhere, change the host-specific paths and addresses first.
+- `deploy.sh` is the deployment script for the lab's production host. It checks paths and permissions, builds both images, and validates SSH and Caddy configuration. Immediately before switching, it stops the app and creates and validates an online SQLite backup. It keeps the previous containers, checks the new deployment's health and access controls, and rolls back on failure. To reuse it elsewhere, change the host-specific paths and addresses first.
 
 The release fingerprint hashes `VERSION`, `server.py`, `hosts.json`, `gpu_watch/`, and `static/`. Production and the emergency copy must match it.
 
 ### Windows emergency fallback
 
-`emergency-local-fallback.ps1 -Action Status|Start|Stop` runs a local copy only while production is down. `Start` refuses while production is reachable unless you pass `-Force`. It also requires a matching `VERSION` and release fingerprint and a fresh collection cycle. It opens the firewall to the lab LAN only. `Stop` removes the listener, the firewall rule, and any temporary password files. The local database is separate, so reconcile notices and timers created during an outage before switching back.
+`emergency-local-fallback.ps1 -Action Status|Start|Stop` manages the Windows emergency copy. Adapt its reference paths, production address, SSH configuration, and LAN ranges to your environment first. `Start` refuses while production is reachable unless you pass `-Force`. It verifies `VERSION`, the release fingerprint, and a fresh collection cycle, and limits the firewall rule to the configured LAN. `Stop` removes its listener, firewall rule, and temporary password files. The local database is separate, so reconcile notices and timers created during an outage before switching back.
 
 ## Operations
 
@@ -234,8 +234,8 @@ docker exec gpu-watch-dashboard python3 /app/scripts/check_local.py --health-onl
 # SQLite integrity and aggregation invariants
 python3 scripts/audit-data.py data/gpu_watch.sqlite3
 
-# Restore a local backup (verifies the destination and checksum)
-sh scripts/restore-backup.sh /absolute/path/to/backup.sqlite3
+# Restore a backup inside data/backups (path, SQLite integrity, foreign keys, schema)
+sh scripts/restore-backup.sh "$PWD/data/backups/backup.sqlite3"
 ```
 
 The maintenance worker makes daily SQLite backups. `deploy.sh` adds a backup before each deployment. There is no automatic off-site copy; `scripts/offsite-backup.sh` is a manual tool.
@@ -265,7 +265,7 @@ The tests also lock product behavior, such as status rules, interval math, secur
 
 ## Release
 
-v3, released on 2026-09-25. The interface footer credits `GPT-6 Astra Max / Claude Opus 5.5 Max`.
+v3, released on 2026-09-25. The interface footer credits `GPT-6 Astra Max (전체 구현) · Claude Opus 5.5 Max (프론트 개선)`.
 
 ## Acknowledgements
 

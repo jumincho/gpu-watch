@@ -24,7 +24,7 @@
 - **Artificial Analysis 갱신이 API 호출 한도를 따릅니다.** 고정 6시간 대신 응답의 호출 한도 헤더로 간격을 정합니다.
 - **보안 강화.** 공지 작성도 비밀번호 해시의 동시 실행 제한을 함께 쓰고, Caddy 빌드는 보안 패치된 OpenTelemetry 모듈로 고정했습니다.
 - **모든 파일을 LF 줄바꿈으로 체크아웃**하므로 Linux 운영본과 Windows 사본의 릴리스 지문(fingerprint)이 일치합니다.
-- **화면 다듬기.** 타이머의 남은 시간이 카드 세로 가운데에 오고, 긴 타이머 제목도 글자가 잘리지 않게 먼저 보여 줍니다. 휴대폰에서는 Intelligence Index가 더 촘촘해지고, 한국어는 어절 단위로 줄을 바꿉니다.
+- **화면 다듬기.** 타이머의 남은 시간이 카드 세로 가운데에 옵니다. 긴 제목을 우선하고 남은 시간을 필요할 때 두 줄로 나누며, 그래도 넘치는 제목은 말줄임표로 줄이고 마우스를 올리면 전체 제목을 보여 줍니다. 휴대폰에서는 Intelligence Index가 더 촘촘해지고, 한국어는 어절 단위로 줄을 바꿉니다.
 
 ## 기능
 
@@ -55,7 +55,7 @@
 ### 일상 사용
 
 - 기본 10초마다 자동으로 새로 고칩니다. 선택한 탭, 스크롤 위치, 키보드 포커스를 유지하고, 백그라운드 탭에서는 주기를 늦춥니다. 데이터 갱신이 멈추면 배너로 알립니다.
-- 폭 320px 화면까지 지원하고, 키보드만으로 모두 조작할 수 있으며, 모션 줄이기 설정을 따릅니다. 색상은 WCAG 2.2 AA 대비 기준을 충족합니다.
+- 폭 320px 화면까지 지원하고, 키보드 탐색과 모션 줄이기 설정을 지원합니다. 릴리즈 점검에서 글자 대비, 포커스 표시, 화면 폭별 배치를 확인합니다.
 
 ## 동작 방식
 
@@ -86,7 +86,7 @@ Browser ──HTTP──▶ Caddy  (IP allowlist, compression)
 
 - **접근 제어.** Caddy가 IP 허용 목록을 적용합니다. 앱도 클라이언트 IP, `Host`, `Origin`을 독립적으로 다시 확인합니다.
 - **쓰기 요청.** 공지와 타이머를 바꾸려면 같은 출처에서 보낸 요청과 비밀번호 또는 PIN이 필요합니다. 해시는 600,000회 반복한 PBKDF2-SHA256을 씁니다. 해시 검사는 동시에 최대 2건만 실행하고, 실패한 시도는 서브넷별, 전체 기준으로 속도를 제한합니다.
-- **브라우저에 절대 보내지 않는 것.** 원격 명령, stderr, 전체 명령행, 환경변수, SSH 사용자, 포트, 비밀번호입니다. 서버 카드에는 검증한 IP 주소만 표시합니다.
+- **제한된 프로세스 정보.** 전체 명령행, 환경변수, 자격 증명은 브라우저에 보내지 않고 정제한 짧은 요약만 제공합니다. 운영 오류는 길이를 제한하고 민감한 값을 가리지만, 호스트 주소나 포트를 포함할 수 있으므로 네트워크 구성을 숨기는 기능은 아닙니다. 서버 카드에는 검증한 IP 주소를 의도적으로 표시합니다.
 - **브라우저 보호.** 엄격한 콘텐츠 보안 정책(CSP)이 인라인 스크립트를 차단합니다. 아이콘과 국기는 외부 호스트가 아니라 로컬에서 제공합니다.
 - **컨테이너.** root가 아닌 사용자로 실행하며, 루트 파일시스템은 읽기 전용이고, 모든 권한(capability)을 제거하고, `no-new-privileges`와 PID·메모리·로그 제한을 적용합니다.
 - **비밀 정보.** SSH 비밀번호, API 키, PIN 해시는 git이 무시하는 런타임 폴더(`secrets/`, `data/`, `operator-secrets/`)에만 두고 저장소에는 넣지 않습니다. SSH 비밀번호는 명령행이 아니라 `SSH_ASKPASS`로 OpenSSH에 전달합니다.
@@ -170,7 +170,7 @@ python3 server.py --host 0.0.0.0 --port 8787
 | `collect_docker_usage` | `docker ps --size`로 Docker 쓰기 계층도 측정합니다. 기본으로는 `nll` 연구실의 호스트에서만 켜집니다. |
 | `privileged_disk_helper` | 설치한 root helper로 디스크 사용량을 측정합니다. `disk_user_paths`와 함께 쓸 수 없습니다. |
 
-그 밖의 최상위 설정으로는 프로브 제한 시간, `collector_workers`, 🔥·❄️ 배지 기준을 정하는 `activity_policy`, 보존 기간이 있습니다. 기본값으로 이벤트는 180일, 공지는 90일, 일일 백업은 14일 동안 보존합니다.
+그 밖의 최상위 설정으로는 프로브 제한 시간, `collector_workers`, 🔥·❄️ 배지 기준을 정하는 `activity_policy`, 보존 기간이 있습니다. 기본값으로 이벤트는 180일, 일일 백업은 14일 동안 보존합니다. 공지는 삭제 또는 만료 후 90일이 지나면 정리하며, 만료일 없는 공지는 삭제할 때까지 유지합니다.
 
 ### 환경변수
 
@@ -209,7 +209,7 @@ sudo python3 -I disk-installer.py
 
 설치 스크립트는 `/usr/local/libexec/gpu-watch-disk`와, 모니터링 계정이 이 helper만 인자 없이 실행할 수 있게 하는 sudoers 규칙, 그리고 `/var/cache/gpu-watch/` 캐시 폴더를 만듭니다. helper는 경로·명령·환경 입력을 받지 않습니다. 동시 실행을 막고 결과를 5분 동안 캐시하며, 낮은 CPU 우선순위로 동작합니다. 데몬을 설치하지 않고 관리자 비밀번호도 저장하지 않습니다.
 
-설치한 뒤 해당 호스트에 `"privileged_disk_helper": true`를 설정합니다. helper가 없으면 같은 시간 예산 안에서 일반 권한 조회로 대신하고, 사용자별 사용량을 일부 집계로 표시합니다.
+공개 예제는 helper를 기본 비활성으로 둡니다. `privileged_disk_helper`가 없거나 false이면 sudo를 사용하지 않습니다. 설치한 뒤 해당 호스트에만 `"privileged_disk_helper": true`를 설정하세요. helper가 없으면 GPU Watch는 같은 시간 예산 안에서 일반 권한 집계로 돌아가고 사용자별 사용량을 일부 미집계로 표시합니다.
 
 ## 배포
 
@@ -217,13 +217,13 @@ sudo python3 -I disk-installer.py
 
 - `Dockerfile`은 다이제스트로 고정한 `python:3.12-alpine` 이미지 위에 앱을 빌드합니다.
 - `Dockerfile.caddy`는 고정한 커밋과 고정한 의존성 버전으로 Caddy를 빌드합니다.
-- `deploy.sh`는 연구실 운영 서버용 배포 스크립트입니다. 경로와 권한을 확인한 뒤 체크섬을 포함한 SQLite 온라인 백업을 만듭니다. 다음으로 두 이미지를 빌드하고 후보 컨테이너를 검증합니다(health, snapshot, collector). 이전 컨테이너를 보존한 채 운영을 전환하고, 허용 목록과 상태를 확인하며, 실패하면 자동으로 롤백합니다. 다른 곳에서 쓰려면 먼저 호스트에 맞는 경로와 주소를 바꾸세요.
+- `deploy.sh`는 연구실 운영 서버용 배포 스크립트입니다. 경로와 권한을 확인하고 두 이미지를 빌드한 뒤 SSH·Caddy 설정을 검사합니다. 전환 직전 앱을 멈추고 SQLite 온라인 백업을 생성·검증합니다. 이전 컨테이너를 보존하고 새 배포의 health와 접근 제어를 확인하며, 실패하면 롤백합니다. 다른 곳에서 쓰려면 먼저 호스트에 맞는 경로와 주소를 바꾸세요.
 
 릴리스 지문은 `VERSION`, `server.py`, `hosts.json`, `gpu_watch/`, `static/`을 해시한 값입니다. 운영본과 비상 사본의 지문이 같아야 합니다.
 
 ### Windows 비상 대체 운영
 
-`emergency-local-fallback.ps1 -Action Status|Start|Stop`은 운영 서버가 멈췄을 때만 로컬 사본을 실행합니다. 운영 서버에 접속할 수 있으면 `-Force` 없이는 `Start`를 거부합니다. 또한 `VERSION`과 릴리스 지문(fingerprint)이 일치하고 최신 수집 주기가 확인되어야 합니다. 방화벽은 연구실 LAN에만 엽니다. `Stop`은 리스너, 방화벽 규칙, 임시 비밀번호 파일을 제거합니다. 로컬 데이터베이스는 따로 있으므로, 장애 중에 만든 공지와 타이머는 운영으로 돌아가기 전에 대조하세요.
+`emergency-local-fallback.ps1 -Action Status|Start|Stop`은 Windows 비상 사본을 관리합니다. 먼저 예제의 경로, 운영 주소, SSH 설정, LAN 범위를 환경에 맞춰 바꾸세요. `Start`는 `-Force`를 주지 않는 한 운영 서버가 응답하면 실행을 거부합니다. `VERSION`·release fingerprint와 새 수집 결과를 확인하고, 방화벽은 설정한 LAN으로만 제한합니다. `Stop`은 자신이 만든 리스너·방화벽 규칙·임시 비밀번호 파일을 정리합니다. 로컬 DB는 별개이므로 복귀 전에 장애 중 생성한 공지와 타이머를 대조하세요.
 
 ## 운영
 
@@ -234,8 +234,8 @@ docker exec gpu-watch-dashboard python3 /app/scripts/check_local.py --health-onl
 # SQLite 무결성과 집계 불변식 검사
 python3 scripts/audit-data.py data/gpu_watch.sqlite3
 
-# 로컬 백업 복구(대상 경로와 체크섬 확인)
-sh scripts/restore-backup.sh /absolute/path/to/backup.sqlite3
+# data/backups 안의 백업 복구(경로·SQLite 무결성·외래 키·스키마 확인)
+sh scripts/restore-backup.sh "$PWD/data/backups/backup.sqlite3"
 ```
 
 유지보수 작업이 SQLite 일일 백업을 만들고, `deploy.sh`는 배포할 때마다 백업을 하나 더 만듭니다. 자동 외부 백업은 없으며, `scripts/offsite-backup.sh`는 수동 도구입니다.
@@ -265,7 +265,7 @@ node tests/test_frontend.js                # 프런트엔드 로직 계약
 
 ## 릴리스
 
-v3, 2026-09-25 릴리스. 화면 푸터에는 `GPT-6 Astra Max / Claude Opus 5.5 Max`가 표시됩니다.
+v3, 2026-09-25 릴리스. 화면 푸터에는 `GPT-6 Astra Max (전체 구현) · Claude Opus 5.5 Max (프론트 개선)`가 표시됩니다.
 
 ## 감사의 말
 

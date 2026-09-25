@@ -262,7 +262,7 @@ class HttpApiTests(unittest.TestCase):
                 body,
             )
             self.assertIn(
-                f"{server.__release_model__} / Claude Opus 5.5 Max",
+                f"{server.__release_model__} (전체 구현) · Claude Opus 5.5 Max (프론트 개선)",
                 body,
             )
             self.assertNotIn("__GPU_WATCH_BUILD_VERSION__", body)

@@ -180,7 +180,7 @@ class ReleaseContractTests(unittest.TestCase):
             html,
         )
         self.assertIn(
-            "__GPU_WATCH_RELEASE_MODEL__ / Claude Opus 5.5 Max",
+            "__GPU_WATCH_RELEASE_MODEL__ (전체 구현) · Claude Opus 5.5 Max (프론트 개선)",
             html,
         )
         self.assertIn(
