@@ -180,7 +180,7 @@ class ReleaseContractTests(unittest.TestCase):
             html,
         )
         self.assertIn(
-            "__GPU_WATCH_RELEASE_MODEL__ (전체 구현) · Claude Opus 5.5 Max (프론트 개선)",
+            "__GPU_WATCH_RELEASE_MODEL__ (Implementation) · Claude Opus 5.5 Max (Frontend)",
             html,
         )
         self.assertIn(
@@ -600,7 +600,7 @@ class ReleaseContractTests(unittest.TestCase):
         self.assertIn('id="intelligenceIndexMessage" role="status" aria-live="polite"', html)
         self.assertIn('id="intelligenceIndexTopModels" role="list"', html)
         self.assertIn('id="intelligenceIndexMore" hidden', html)
-        self.assertIn("AI 모델 벤치마크 · 일일 갱신", html)
+        self.assertIn("AI 모델 벤치마크 · 약 1시간마다 갱신", html)
         self.assertIn("Artificial Analysis Intelligence Index</h2>", html)
         self.assertNotIn("Artificial Analysis Intelligence Index: Score", html)
         self.assertIn("11–29위 모델 보기", html)

@@ -265,7 +265,7 @@ The tests also lock product behavior, such as status rules, interval math, secur
 
 ## Release
 
-v3, released on 2026-09-25. The interface footer credits `GPT-6 Astra Max (전체 구현) · Claude Opus 5.5 Max (프론트 개선)`.
+v3, released on 2026-09-25. The interface footer credits `GPT-6 Astra Max (Implementation) · Claude Opus 5.5 Max (Frontend)`.
 
 ## Acknowledgements
 

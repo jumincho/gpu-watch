@@ -265,7 +265,7 @@ node tests/test_frontend.js                # 前端逻辑契约测试
 
 ## 发布信息
 
-v3，于 2026-09-25 发布。界面页脚显示 `GPT-6 Astra Max (전체 구현) · Claude Opus 5.5 Max (프론트 개선)`。
+v3，于 2026-09-25 发布。界面页脚显示 `GPT-6 Astra Max (Implementation) · Claude Opus 5.5 Max (Frontend)`。
 
 ## 致谢
 

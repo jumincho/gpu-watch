@@ -265,7 +265,7 @@ node tests/test_frontend.js                # 프런트엔드 로직 계약
 
 ## 릴리스
 
-v3, 2026-09-25 릴리스. 화면 푸터에는 `GPT-6 Astra Max (전체 구현) · Claude Opus 5.5 Max (프론트 개선)`가 표시됩니다.
+v3, 2026-09-25 릴리스. 화면 푸터에는 `GPT-6 Astra Max (Implementation) · Claude Opus 5.5 Max (Frontend)`가 표시됩니다.
 
 ## 감사의 말
 
