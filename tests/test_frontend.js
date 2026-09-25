@@ -27,7 +27,7 @@ const names = ["clamp","pct","esc","limitDateTimeYear","formatKstInput","kstInpu
   "shortTime","intelligenceModelDisplayName","regionalFlagCode","deadlineTitleHtml",
   "eventsQueryString","publicActivityEvents","renderEvents","splitDiskErrors","renderDiskWarnings",
   "domIdPart","activityStateMeta","focusWithoutScroll","renderHosts",
-  "closeNoticeDialog","closeNoticeDeleteDialog","isCapacityFilesystem","storageTotals","storageUsedPercent","storageWarningFor"];
+  "closeNoticeDialog","closeNoticeDeleteDialog","isCapacityFilesystem","storageTotals","storageUsedPercent","storageWarningFor","renderDiskTab","bytes","reservedBytes"];
 for (const name of names) {
   const match = source.match(new RegExp("^(?:async )?function "+name+"\\([^]*?^}","m"));
   assert.ok(match, name);
@@ -217,16 +217,37 @@ check("closing a dialog clears its secret synchronously before native close disp
  assert.equal(context.pendingNoticeDeleteId,null);
 });
 
-check("disk capacity deduplicates bind mounts and a full root is never masked",()=>{
- const root={filesystem:"/dev/root",mount:"/",type:"ext4",total_bytes:1000,used_bytes:910,available_bytes:90};
+check("disk warning and filter use server-wide capacity, not the fullest mount",()=>{
+ const root={filesystem:"/dev/root",mount:"/",type:"ext4",total_bytes:1000,used_bytes:990,available_bytes:10};
  const data={filesystem:"/dev/data",mount:"/data",type:"ext4",total_bytes:9000,used_bytes:100,available_bytes:8900};
  const duplicate={...data,mount:"/data-alias"};
  const totals=context.storageTotals([root,data,duplicate]);
  assert.equal(totals.total,10000);
- assert.equal(totals.used,1010);
- assert.equal(totals.available,8990);
- assert.equal(context.storageWarningFor({disk:{filesystems:[root,data]}}).usedPct,91);
- assert.equal(context.storageWarningFor({disk:{filesystems:[data,duplicate]}}),null);
+ assert.equal(totals.used,1090);
+ assert.equal(totals.available,8910);
+ const host={...healthy,disk:{filesystems:[root,data,duplicate],users:[],errors:[]}};
+ assert.equal(context.storageUsedPercent(totals),11);
+ assert.equal(context.storageWarningFor(host),null);
+ assert.equal(context.hostMatchesFilter(host,"disk"),false);
+ assert.match(context.renderDiskTab(host),/<strong>11%<\/strong>/);
+ const full={...host,disk:{...host.disk,filesystems:[root,{...data,used_bytes:8400,available_bytes:600}]}};
+ assert.equal(context.storageWarningFor(full).usedPct,94);
+ assert.equal(context.hostMatchesFilter(full,"disk"),true);
+ assert.match(context.renderDiskTab(full),/<strong>94%<\/strong>/);
+ assert.equal(context.hostMatchesFilter({...full,reachable:false},"disk"),false);
+});
+check("disk warning matches Used with reserved space, excluded mounts and rounding",()=>{
+ const root={filesystem:"/dev/root",mount:"/",type:"ext4",total_bytes:1200,used_bytes:894,available_bytes:106,use_percent:99};
+ const boot={...root,filesystem:"/dev/boot",mount:"/boot",used_bytes:1200,available_bytes:0};
+ const host={...healthy,disk:{filesystems:[root,boot],users:[],errors:[]}};
+ assert.equal(context.reservedBytes(context.storageTotals(host.disk.filesystems)),200);
+ assert.equal(context.storageWarningFor(host),null);
+ assert.match(context.renderDiskTab(host),/<strong>89%<\/strong>/);
+ const threshold={...host,disk:{...host.disk,filesystems:[{...root,used_bytes:895,available_bytes:105},boot]}};
+ assert.equal(context.storageWarningFor(threshold).usedPct,90);
+ assert.match(context.renderDiskTab(threshold),/<strong>90%<\/strong>/);
+ assert.equal(context.storageWarningFor({...healthy,disk:{filesystems:[]}}),null);
+ assert.equal(context.storageWarningFor(healthy),null);
 });
 
 check("native datetime editing stays within four year digits",()=>{

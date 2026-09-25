@@ -37,7 +37,7 @@ Before starting a job on a shared server, people usually need three answers: whi
 
 ### Disk
 
-- Free, usable, used, and reserved space per filesystem, with a warning at 90% usage.
+- Free, usable, used, and reserved space. The warning badge uses the same server-wide aggregate as the Disk tab's `Used`: total used / (total used + total available), with a warning from a displayed 90%. Filesystem aliases are counted once.
 - Per-user usage from readable home directories and configured paths, plus Docker writable layers. When a result is partial, lower bounds are marked `≥` and estimates `≈`.
 
 ### History and trends

@@ -1426,11 +1426,10 @@ function storageUsedPercent(totals) {
 }
 
 function storageWarningFor(host) {
-  const filesystems = (host.disk?.filesystems || []).filter(isCapacityFilesystem);
-  if (!filesystems.length) return null;
-  // A nearly full root must remain visible even when a separate data
-  // filesystem has ample space. The summary still uses aggregate capacity.
-  const usedPct = Math.max(...filesystems.map((fs) => storageUsedPercent(storageTotals([fs]))));
+  // The warning identifies servers needing overall cleanup. Keep its scope,
+  // filesystem deduplication, usable capacity and rounding identical to Used.
+  const totals = storageTotals(host.disk?.filesystems || []);
+  const usedPct = storageUsedPercent(totals);
   return usedPct >= 90 ? { usedPct } : null;
 }
 
@@ -1789,7 +1788,7 @@ function renderHosts(data) {
               <div class="host-title">
                 <strong id="${hostDomId}-heading">${esc(host.label || host.name)}</strong>
                 <span class="state-pill ${statusClass}">${esc(statusText)}</span>
-                ${storageWarning ? `<span class="state-pill disk-warn" title="${esc(`Storage used ${storageWarning.usedPct}%`)}">Disk ${esc(storageWarning.usedPct)}%</span>` : ""}
+                ${storageWarning ? `<span class="state-pill disk-warn" title="${esc(`Storage used ${storageWarning.usedPct}% · 전체 파일시스템 합산`)}">Disk ${esc(storageWarning.usedPct)}%</span>` : ""}
                 ${renderOwnerBadge(host)}
                 ${activityMeta ? `<span class="state-pill activity-state ${activity.kind}" role="img" aria-label="${esc(activityMeta.label)}">${activityMeta.icon}</span>` : ""}
               </div>
