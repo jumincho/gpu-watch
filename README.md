@@ -251,7 +251,7 @@ The reference production setup runs two hardened containers. Caddy is the only p
 
 - `Dockerfile` builds the app on a digest-pinned `python:3.12-alpine` image.
 - `Dockerfile.caddy` builds Caddy from a pinned commit and pinned dependency versions.
-- `deploy.sh` is the deployment script for the lab's production host. It checks paths and permissions, then makes an online SQLite backup with a checksum. Next it builds both images and validates a candidate container (health, snapshot, collector). It switches production while keeping the previous container, checks the allowlist and health, and rolls back containers, SSH runtime files, and the database on failure. It removes only this project's own unused build images. To reuse it elsewhere, change the host-specific paths and addresses first.
+- `deploy.sh` is the deployment script for the lab's production host. It checks paths and permissions, builds both images, and validates a candidate container (health, snapshot, collector). It then stops and keeps the previous app container and makes a verified SQLite backup with a checksum before changing the database or SSH runtime files. After switching production, it checks the allowlist and health and rolls back containers, SSH runtime files, and the database on failure. It removes only this project's own unused build images. To reuse it elsewhere, change the host-specific paths and addresses first.
 
 | Container | Limits |
 |---|---|
