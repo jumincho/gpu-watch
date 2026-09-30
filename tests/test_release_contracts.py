@@ -173,16 +173,10 @@ class ReleaseContractTests(unittest.TestCase):
         parser = IdParser()
         parser.feed(html)
         self.assertEqual(len(parser.ids), len(set(parser.ids)))
-        self.assertIn("__GPU_WATCH_BUILD_VERSION__", html)
         self.assertEqual(html.count("__GPU_WATCH_ASSET_VERSION__"), 7)
-        self.assertIn(
-            "GPU Watch · Release v__GPU_WATCH_BUILD_VERSION__ · __GPU_WATCH_RELEASE_DATE__",
-            html,
-        )
-        self.assertIn(
-            "__GPU_WATCH_RELEASE_MODEL__ (Implementation) · Claude Opus 5.5 Max (Frontend)",
-            html,
-        )
+        self.assertNotIn('class="site-footer"', html)
+        self.assertNotIn('__GPU_WATCH_RELEASE_MODEL__', html)
+        self.assertNotIn('__GPU_WATCH_RELEASE_DATE__', html)
         self.assertIn(
             "http://aideadlines.org/?sub=ML,CV,NLP,RO,SP,DM,AP,KR,HCI,IRSM,MISC",
             html,
@@ -197,7 +191,6 @@ class ReleaseContractTests(unittest.TestCase):
             "https://www.threads.com/@choi.openai",
         )
         self.assertLess(html.index('id="labPulse"'), html.index('id="aiServiceWatch"'))
-        self.assertLess(html.index('id="aiServiceWatch"'), html.index('<footer class="site-footer">'))
         self.assertIn('aria-labelledby="serviceWatchTitle"', html)
         self.assertIn(">사이트 모음</span>", html)
         self.assertIn("서비스 상태 · Codex 사용량 · 이슈 체크 · AI 소식", html)
@@ -595,7 +588,6 @@ class ReleaseContractTests(unittest.TestCase):
         styles = (ROOT / "static" / "styles.css").read_text(encoding="utf-8")
 
         self.assertLess(html.index('id="aiServiceWatch"'), html.index('id="intelligenceIndex"'))
-        self.assertLess(html.index('id="intelligenceIndex"'), html.index('<footer class="site-footer">'))
         self.assertIn('aria-labelledby="intelligenceIndexTitle"', html)
         self.assertIn('id="intelligenceIndexMessage" role="status" aria-live="polite"', html)
         self.assertIn('id="intelligenceIndexTopModels" role="list"', html)
@@ -770,15 +762,15 @@ class ReleaseContractTests(unittest.TestCase):
         package = (ROOT / "gpu_watch" / "__init__.py").read_text(encoding="utf-8")
         deploy = (ROOT / "deploy.sh").read_text(encoding="utf-8")
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        self.assertEqual(version, "3")
-        self.assertIn('__version__ = "3"', package)
-        self.assertIn('__release_model__ = "GPT-6 Astra Max"', package)
-        self.assertIn('__release_date__ = "2026-09-25"', package)
+        self.assertEqual(version, "2")
+        self.assertIn('__version__ = "2"', package)
+        self.assertIn('__release_model__ = "GPT-6.1 Sol (max)"', package)
+        self.assertIn('__release_date__ = "2026-09-30"', package)
         for filename in ("Dockerfile", "Dockerfile.caddy"):
             dockerfile = (ROOT / filename).read_text(encoding="utf-8")
-            self.assertIn("ARG BUILD_VERSION=3", dockerfile)
+            self.assertIn("ARG BUILD_VERSION=2", dockerfile)
             self.assertIn('org.opencontainers.image.version="$BUILD_VERSION"', dockerfile.replace('${BUILD_VERSION}', '$BUILD_VERSION'))
-        self.assertIn("# GPU Watch Dashboard v3", readme)
+        self.assertIn("# GPU Watch Dashboard v2", readme)
         self.assertIn("export PYTHONDONTWRITEBYTECODE=1", deploy)
         self.assertIn('VERSION_FILE="$ROOT/VERSION"', deploy)
         self.assertIn('BUILD_VERSION=$RELEASE_VERSION', deploy)

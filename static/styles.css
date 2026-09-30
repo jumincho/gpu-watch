@@ -2571,18 +2571,6 @@ main {
   font-size: var(--font-micro);
 }
 
-.site-footer {
-  padding: 18px 56px 2px 0;
-  color: var(--faint);
-  font-size: var(--font-micro);
-  line-height: 1.5;
-  text-align: right;
-}
-
-.site-footer span {
-  display: block;
-}
-
 .lab-pulse {
   display: grid;
   grid-template-columns: minmax(230px, 0.46fr) minmax(230px, 0.52fr) minmax(420px, 1fr);
@@ -3211,6 +3199,14 @@ main {
 
   .event-filters {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Keep the longest hostname and IP fully readable on a 320px viewport. */
+@media (max-width: 380px) {
+  .host-stamp strong {
+    font-size: var(--font-nano);
+    letter-spacing: -0.02em;
   }
 }
 

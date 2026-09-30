@@ -1,276 +1,45 @@
-# GPU Watch Dashboard v3
+# GPU Watch Dashboard v2
 
-一款轻量、无需代理的仪表盘，专为实验室共享的 GPU 服务器设计。它能显示哪些 GPU 当前空闲、忙碌的 GPU 由谁在用，以及磁盘还剩多少空间。所有数据仅通过普通 SSH 采集。
+通过 SSH 查看共享 NVIDIA GPU 的轻量仪表盘。后端只使用 Python 标准库和 SQLite，前端是无需构建的 HTML/CSS/JavaScript，GPU 服务器不需要常驻代理。
 
-[English](README.md) | **简体中文** | [繁體中文](README.zh-HK.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
+**v2 正式发布：2026-09-30 · GPT-6.1 Sol (max)。页面不显示发布信息页脚。**
 
-![GPU Watch 仪表盘：实验室概览、会议截稿倒计时和各服务器的 GPU 卡片](docs/images/dashboard.png)
+[English](README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-HK.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-<sub>截图使用的是虚构的演示数据。界面语言为韩语，技术术语使用英语。</sub>
+公开版包含虚构服务器名、文档示例 IP 和 SSH 路径。部署前请替换配置并验证 SSH 密钥和 known_hosts；密码、API 密钥、数据库和内部运营文档不包含在仓库内。
 
-## 为什么选择 GPU Watch
+## 功能与数据规则
 
-在共享服务器上开始任务之前，通常需要先弄清三件事：哪块 GPU 空闲，忙碌的 GPU 由谁在用，磁盘空间是否够用。GPU Watch 在一个页面上回答这三个问题。
+- 默认每 10 秒采集 GPU、每 30 分钟采集磁盘；磁盘有独立工作线程和超时预算。支持多进程、多用户、实验室概览和状态筛选。
+- 有计算进程、显存 ≥500 MiB 或利用率 ≥10% 时算 busy。利用率为 0% 的驻留进程仍占用 GPU；这些指标衡量占用，而不是计算效率。
+- 通过 effective UID、NSS/数字 UID、PID 启动标识和 GPU UUID 重新验证所有者。不会仅凭 root 拥有的 /proc 目录猜测用户，也不会因用户暂时未知而隐藏已验证的占用进程。全部用户已知时在不同用户之间均分时间；部分未知区间保持未归属。完整命令行、环境和参数值不公开。
+- 不到 60 秒的任务仍进入历史和占用统计，只不解除长期空闲标记。长期空闲不要求 100% 观测覆盖；七日指标使用已观测 GPU 时间，缺失时间不填零。LAB DAILY INDEX 按 KST 日界累加各 GPU 的观测时间加权显存均值。
+- Recent Activity 支持日期、服务器、用户和分页；DOWN/UP 默认隐藏，可选包含，观测缺口和用户变化只保留在数据层。
+- 磁盘警告与 Disk Used 使用相同的总 used/(used+available)。重复挂载只算一次，保留块不进入分母；不完整归属用 ≥/≈ 表示。可选 root helper 只接受固定无参数命令，采用低优先级、锁和五分钟缓存。
+- 六个会议计时器保留固定颜色、截止日期排序及同时间注册顺序，支持 TBA 和本地国旗 SVG。公告可无到期日期，已有公告也可改为长期。点击对话框外部不会关闭表单。
+- 自动刷新保留标签、滚动和焦点。AA 前 29 名缓存在服务器；按 API 配额约每小时刷新（100 次/日、四页），最低 15 分钟，预留最多八次，没人打开页面也会按计划更新。版本来自 API，模型名称简写。
 
-- **无需代理。** 每台 GPU 服务器只需提供 SSH 访问、`nvidia-smi` 和 `python3`，服务器上没有任何常驻程序。
-- **轻量。** 后端只使用 Python 标准库和 SQLite。前端是无需构建步骤的原生 HTML、CSS 和 JavaScript。
-- **严谨。** 不猜测进程归属，不显示完整命令行，也不会把过时的读数当作实时数据展示。
+## 部署与安全
 
-## v3 的变化
+使用 Python 3.12+ 和 OpenSSH，或 Docker。GPU 服务器需 SSH、python3、nvidia-smi、df 和 GNU du；采集不依赖持久 home 目录。先配置 hosts.json、IP/Host 白名单和 SSH 主机密钥。AA 密钥保存在 app 所有、0600 权限的 secrets/artificial_analysis_api_key 文件，浏览器只能读取排名缓存。
 
-- **进程归属**改为读取 `/proc/<pid>/status` 中的有效 UID。即使进程的 `/proc` 目录看起来归 root 所有（non-dumpable 进程），也能归到正确的用户名下。
-- **GPU 探测失败时磁盘仍会继续刷新**，例如 SSH 正常、但 NVIDIA 驱动版本不匹配导致只有 GPU 探测失败的情况。
-- **可选的特权磁盘助手**：在监控账号无法读取其他用户主目录的服务器上，也能按用户统计用量。参见[特权磁盘助手](#特权磁盘助手)。
-- **Artificial Analysis 的刷新遵循 API 配额**：刷新间隔由响应中的速率限制头决定，不再固定为 6 小时。
-- **安全加固**：创建公告也与密码哈希共用同一个并发上限；Caddy 构建固定使用已修复的 OpenTelemetry 模块。
-- **所有文件均以 LF 换行检出**，因此 Linux 生产环境与 Windows 副本的发布指纹一致。
-- **界面细节调整**：计时器的剩余时间位于卡片的垂直中央。较长的标题优先显示，必要时将剩余时间分成两行；仍放不下的标题使用省略号，悬停时显示全文。手机上的 Intelligence Index 更紧凑，韩语按词换行。
+edge 和 app 校验 IP/Host/Origin；写操作需要公告密码或管理员 PIN，采用 PBKDF2-SHA256 600,000 次及并发/失败次数限制。容器使用非 root、只读文件系统、cap-drop、no-new-privileges 和资源限制。HTTP 只适合可信 LAN；IP 限制不等于传输加密。密码保存提示由浏览器最终决定。
 
-## 功能
+deploy.sh 中的示例地址和路径必须修改。部署前备份并验证 SQLite，失败时回滚容器、数据库和 SSH 运行文件。Windows 应急副本平时关闭，VERSION、代码指纹及全文件清单必须和生产一致；Force 也不能跳过不一致检查。仅 LAN 防火墙操作需要 UAC，app 以普通用户运行；Stop 清理进程、规则和临时密码。
 
-### GPU 与服务器
+默认日备份保留 14 天、部署前备份 30 天、事件和日指标 180 天、原始区间八天。不配置自动异地备份。详细字段、结构和运营命令请见 [English README](README.md)。
 
-- 每块 GPU 的实时状态：free（空闲）或 busy（忙碌）、利用率、显存（VRAM）、温度，以及已忙碌的时长或最近一次使用时间。
-- 每块 GPU 上的进程及其用户、显存占用和简短的命令摘要。详情中还会显示 PID、启动时间和容器，但绝不显示完整命令行。
-- 实验室切换、实验室整体概览（在线服务器、空闲与忙碌的 GPU、显存），以及“使用中”“全部空闲”“连接失败”“磁盘警告”等筛选。
-- 活动徽章：🔥 高负载（近 7 天忙碌指数不低于 50%）、❄️ 长期闲置（7 天内没有持续 60 秒以上的使用）、⛔ 连接失败。
-
-### 磁盘
-
-- 空闲、可用、已用和保留空间。警告徽章与 Disk 页签的 `Used` 使用相同的服务器整体汇总值：已用总量 /（已用总量 + 可用空间总量），显示使用率达到 90% 时警告。同一文件系统的重复挂载只计一次。
-- 按用户统计的用量，包括可读取的主目录、配置的路径以及 Docker 可写层。结果不完整时，下限值标记为 `≥`，估计值标记为 `≈`。
-
-### 历史与趋势
-
-- Recent Activity（最近活动）记录 busy/free 的切换，可按日期、服务器和用户筛选。连接 DOWN/UP 事件默认隐藏，也可以选择一并显示。
-- 每台服务器近 7 天的忙碌指数和各用户的使用占比。
-- LAB DAILY INDEX：最近 24 小时逐小时的显存 K 线，以及 30 天日均显存的变化趋势。
-
-### 实验室工具
-
-- 最多 6 个会议截稿倒计时（KST），支持 TBA 条目。计时器标题中的国旗表情由仓库自带的 SVG 文件绘制。
-- 可选设置过期时间的公告板。作者用自己设定的密码编辑公告，管理员可用管理员 PIN 管理所有公告。
-- 快捷链接到会议截稿网站、AI 服务状态页面和 AI 资讯。页面还会显示 Artificial Analysis Intelligence Index（前 29 个模型）。数据由服务器获取，因此 API 密钥不会到达浏览器。
-
-### 日常使用
-
-- 默认每 10 秒自动刷新。刷新时会保留所选标签页、滚动位置和键盘焦点，页面在后台时会放慢刷新频率。数据停止更新时会显示提示横幅。
-- 支持宽度低至 320px 的屏幕、键盘导航及系统的“减少动态效果”设置。发布检查涵盖文字对比度、焦点可见性及不同屏幕宽度的布局。
-
-## 工作原理
-
-```text
-Browser ──HTTP──▶ Caddy  (IP allowlist, compression)
-                    │
-                    ▼
-              server.py   (HTTP API · collector · maintenance)
-               │      │
-          SSH  │      └──▶ SQLite  (data/)
-               ▼
-          GPU servers  (nvidia-smi · /proc · df · du · docker)
-```
-
-1. 采集器每隔 `poll_interval_seconds`（10 秒）并行连接 `hosts.json` 中的所有主机，并在每台主机上执行 `nvidia-smi` 查询和一个小型内联 Python 探针。
-2. 进程归属根据 `/proc/<pid>/status` 中的有效 UID 和 NSS 用户名确定，并用 PID 启动时间和 GPU UUID 再次核对。无法确认时显示为未知，而不是猜测。
-3. 每隔 `disk_poll_interval_seconds`（30 分钟），使用 `df`、带时间限制的 `du` 和 `docker ps --size` 测量磁盘用量，也可以改用可选的特权助手。
-4. 观测结果以时间区间的形式存入 SQLite。重叠的 GPU、进程和用户会合并计算，因此忙碌时间不会被重复统计。
-5. 页面读取 `/api/snapshot`、`/api/events`、`/api/insights` 和 `/api/intelligence-index`。
-
-### 状态判定规则
-
-- 如果 GPU 上有计算进程、显存占用至少 500 MiB，或利用率至少 10%，则该 GPU 为 **busy**。两个阈值都可以配置。
-- 持续占用显存的进程即使利用率为 0% 也算作忙碌，因此已被占用的 GPU 不会显示为空闲。
-- 只要未能完整观测 GPU（无论是 SSH 失败还是 GPU 探测失败），服务器即为 **DOWN**。它的所有 GPU 都不计为可用，之前的读数也不会作为当前数据显示。磁盘探测成功也不会让 DOWN 的服务器恢复为 UP。
-
-## 安全模型
-
-- **访问控制。** Caddy 执行 IP 白名单。应用本身也会再次独立校验客户端 IP、`Host` 和 `Origin`。
-- **写操作。** 修改公告和计时器需要同源请求以及密码或 PIN。哈希采用迭代 600,000 次的 PBKDF2-SHA256。哈希校验最多同时进行 2 个，失败的尝试会按子网和全局两个维度进行速率限制。
-- **有限的进程信息。** 不向浏览器发送完整命令行、环境变量或凭据，仅提供经过清理的简短摘要。运行错误会限制长度并隐去敏感值，但可能包含主机地址或端口，因此不能用来隐藏网络结构。服务器卡片会按设计显示经过校验的 IP 地址。
-- **浏览器防护。** 严格的内容安全策略（CSP）会阻止内联脚本。图标和国旗均由本地提供，不从第三方主机加载。
-- **容器。** 以非 root 用户运行，根文件系统只读，移除全部 capabilities，并启用 `no-new-privileges` 以及 PID、内存和日志限制。
-- **机密信息。** SSH 密码、API 密钥和 PIN 哈希只存放在被 git 忽略的运行时目录（`secrets/`、`data/`、`operator-secrets/`）中，从不进入仓库。SSH 密码通过 `SSH_ASKPASS` 交给 OpenSSH，而不是放在命令行上。
-- **传输。** 明文 HTTP 仅适用于可信的局域网。若要更大范围地开放，请先添加 TLS 和身份验证。
-
-## 环境要求
-
-| 位置 | 需要 |
-|---|---|
-| 仪表盘主机 | Python 3.12（仅标准库）和 OpenSSH 客户端，或 Docker |
-| 每台 GPU 服务器 | 监控账号的 SSH 访问、带 `nvidia-smi` 的 NVIDIA 驱动、`python3`、`df` 和 GNU `du`。Docker 为可选项，安装后可额外显示各容器的用量。使用特权磁盘助手时还需要 `sudo`。 |
-| 访问者 | 较新的网页浏览器 |
-
-## 快速开始
+## Commands
 
 ```sh
 git clone https://github.com/jumincho/gpu-watch.git
 cd gpu-watch
-
-# 1. 填写你的服务器（参见下方“配置”）。
-$EDITOR hosts.json
-
-# 2. 创建管理员 PIN。脚本会输出一次性明文 PIN 的保存位置。
+# Configure hosts.json and SSH before starting.
 python3 scripts/admin-passphrase.py ensure
-
-# 3. 启动仪表盘。
 python3 server.py --host 127.0.0.1 --port 8787
-```
-
-打开 <http://127.0.0.1:8787/>。默认只允许本机回环地址访问。如需让局域网内的其他机器访问，请明确列出允许的地址。下面的地址仅为示例。
-
-```sh
-GPU_WATCH_ALLOWED_NETWORKS="127.0.0.0/8,::1/128,192.0.2.0/24" \
-GPU_WATCH_ALLOWED_HOSTS="192.0.2.10:8787,127.0.0.1:8787,localhost:8787" \
-python3 server.py --host 0.0.0.0 --port 8787
-```
-
-## 配置
-
-### `hosts.json`
-
-仓库自带的 `hosts.json` 描述的是一个虚构的实验室，请换成你自己的服务器。
-
-```json
-{
-  "poll_interval_seconds": 10,
-  "disk_poll_interval_seconds": 1800,
-  "busy_memory_threshold_mib": 500,
-  "busy_utilization_threshold_percent": 10,
-  "labs": [{ "id": "vision", "label": "VISION LAB" }],
-  "hosts": [
-    {
-      "name": "atlas",
-      "label": "atlas",
-      "lab": "vision",
-      "ssh_host": "192.0.2.11",
-      "ssh_port": 22,
-      "ssh_user": "gpuwatch",
-      "ssh_identity_file": "~/.ssh/id_ed25519",
-      "expected_gpu_count": 4,
-      "note": "NVIDIA GeForce RTX 4090 x4",
-      "owner": "Vision",
-      "owner_type": "assigned",
-      "location": "Room 301"
-    }
-  ]
-}
-```
-
-| 主机字段 | 含义 |
-|---|---|
-| `name` | 唯一 ID（字母、数字、`.`、`_`、`-`）。省略 `ssh_host` 时，它也会被用作 SSH 别名。 |
-| `label`、`lab` | 显示名称和所属实验室 |
-| `ssh_host`、`ssh_port`、`ssh_user` | 连接目标 |
-| `ssh_identity_file` | 密钥登录使用的私钥 |
-| `ssh_password_file`、`ssh_options` | 密码登录。密码文件放在 `secrets/` 下，运行时读取。 |
-| `display_ip` | 通过别名连接的主机在卡片上显示的 IP |
-| `expected_gpu_count` | 服务器处于 DOWN 状态时仍然显示的 GPU 格数 |
-| `note`、`owner`、`owner_type`、`location` | 卡片上的文字和徽章样式（`assigned` 或 `shared`） |
-| `disk_user_paths` | 额外测量的按用户路径，格式为 `{ "user": …, "path": … }` |
-| `collect_docker_usage` | 同时用 `docker ps --size` 测量 Docker 可写层。默认仅对 `nll` 实验室的主机开启。 |
-| `privileged_disk_helper` | 通过已安装的 root 助手测量磁盘用量。不能与 `disk_user_paths` 同时使用。 |
-
-其他顶层设置还包括探测超时、`collector_workers`、决定 🔥 和 ❄️ 徽章阈值的 `activity_policy`，以及保留期限。默认情况下，事件保留 180 天，每日备份保留 14 天。公告在删除或到期 90 天后清理；未设到期日期的公告会一直保留，直到被删除。
-
-### 环境变量
-
-| 变量 | 用途 | 默认值 |
-|---|---|---|
-| `GPU_WATCH_ALLOWED_NETWORKS` | 客户端 IP 白名单（以逗号分隔的 CIDR） | 本机回环 |
-| `GPU_WATCH_ALLOWED_HOSTS` | 接受的 `Host` 请求头 | 本机回环 |
-| `GPU_WATCH_TRUSTED_PROXY_NETWORKS` | 信任其 `X-Forwarded-For` 请求头的反向代理 | 本机回环 |
-| `GPU_WATCH_SSH_CONFIG_FILE` | 要使用的 OpenSSH 配置文件的绝对路径 | 无 |
-| `GPU_WATCH_SSH_IDENTITY_FILE` | 替代各主机设置的密钥文件 | 无 |
-| `GPU_WATCH_ADMIN_PIN_HASH` | 管理员 PIN 哈希，用来替代 `data/admin_pin.hash` | 无 |
-| `GPU_WATCH_RUNTIME_MODE` | `standalone`、`production` 或 `emergency` | `standalone` |
-| `GPU_WATCH_BUILD_VERSION` | 页脚显示的版本号 | `VERSION` |
-
-### Artificial Analysis
-
-如需显示 Intelligence Index，请把 API 密钥放在 `secrets/artificial_analysis_api_key` 中。该文件必须是普通文件（不能是符号链接），权限为 `0600`。浏览器只会收到缓存的排名。
-
-- 服务器根据响应中的 `X-RateLimit-*` 头和页数，把完整刷新均匀分布在配额周期内。它会预留少量请求（最多 8 次），刷新间隔不短于 15 分钟。在每天 100 次配额、共 4 页的情况下，大约每小时刷新一次。
-- 配额不足时，会等到配额重置后再刷新。每个请求在发出前就先计数，因此重启或网络错误不会让它误以为还有剩余次数。
-- 响应中没有速率限制头时，每 6 小时刷新一次。失败后 1 小时重试；如果 API 返回更长的 `Retry-After`，则以其为准。超过 48 小时的数据会标记为过时。
-- 配额状态（上限、剩余次数、重置时间、页数、下次尝试时间）与密钥分开，保存在 `data/` 中缓存的旁边。
-- 页面每 5 分钟检查一次服务器缓存。如果没有人打开页面，刷新可能会推迟到下一个维护周期（默认每小时一次）。
-
-## 特权磁盘助手
-
-在监控账号无法读取其他用户主目录的服务器上，按用户统计的合计只能部分计入。对于这类服务器，可以安装一个小型 root 助手，它只运行 GPU Watch 自己的磁盘采集程序。
-
-```sh
-# 生成可供审阅的安装脚本（此步骤不会安装任何东西）。
-python3 scripts/provision-disk-helper.py --user gpuwatch --output disk-installer.py
-
-# 审阅 disk-installer.py 后复制到 GPU 服务器，并以管理员身份运行。
-sudo python3 -I disk-installer.py
-```
-
-安装脚本会创建 `/usr/local/libexec/gpu-watch-disk`、一条只允许监控账号不带参数运行该助手的 sudoers 规则，以及 `/var/cache/gpu-watch/` 缓存目录。助手不接受任何路径、命令或环境变量输入。它会阻止并发扫描，将结果缓存 5 分钟，并以较低的 CPU 优先级运行。不会安装守护进程，也不会保存管理员密码。
-
-公开示例默认不启用 helper：省略 `privileged_disk_helper` 或设为 false 时不会使用 sudo。安装后，仅为该主机设置 `"privileged_disk_helper": true`。若找不到 helper，GPU Watch 会在相同的时间预算内退回普通权限统计，并将用户用量标为部分统计。
-
-## 部署
-
-参考的生产环境由两个经过加固的容器组成。对外只发布 Caddy 的端口，应用只在内部 Docker 网络中运行。
-
-- `Dockerfile` 基于以摘要固定的 `python:3.12-alpine` 镜像构建应用。
-- `Dockerfile.caddy` 使用固定的提交和固定的依赖版本构建 Caddy。
-- `deploy.sh` 是实验室生产主机的部署脚本。它检查路径和权限、构建两个镜像，并验证 SSH 和 Caddy 配置。切换前会停止应用，创建并验证 SQLite 在线备份。它保留旧容器，检查新部署的 health 和访问控制，失败时回滚。若要在其他环境使用，请先修改与主机相关的路径和地址。
-
-发布指纹是对 `VERSION`、`server.py`、`hosts.json`、`gpu_watch/` 和 `static/` 计算的哈希。生产环境和应急副本的指纹必须一致。
-
-### Windows 应急备用
-
-`emergency-local-fallback.ps1 -Action Status|Start|Stop` 管理 Windows 应急副本。请先按自己的环境调整参考路径、生产地址、SSH 配置和 LAN 范围。除非传入 `-Force`，否则生产服务能响应时 `Start` 会拒绝启动。它检查 `VERSION`、release fingerprint 和新一轮采集结果，并将防火墙规则限定在配置的 LAN 范围。`Stop` 会移除它创建的监听器、防火墙规则和临时密码文件。本地数据库独立存在，因此切回前应核对故障期间创建的公告和计时器。
-
-## 运维
-
-```sh
-# 检查运行中容器的健康状态
-docker exec gpu-watch-dashboard python3 /app/scripts/check_local.py --health-only --expected-build-version 3
-
-# 检查 SQLite 完整性和聚合不变量
 python3 scripts/audit-data.py data/gpu_watch.sqlite3
-
-# 恢复 data/backups 内的备份（校验路径、SQLite 完整性、外键及架构）
-sh scripts/restore-backup.sh "$PWD/data/backups/backup.sqlite3"
+python3 -m unittest discover -s tests -v
+node tests/test_frontend.js
 ```
 
-维护任务每天创建 SQLite 备份，`deploy.sh` 每次部署前还会额外备份一次。没有自动异地备份；`scripts/offsite-backup.sh` 是手动工具。
-
-## 开发与测试
-
-```sh
-python3 -m unittest discover -s tests -v   # Python 回归测试与契约测试
-node tests/test_frontend.js                # 前端逻辑契约测试
-```
-
-测试还会锁定产品行为，例如状态判定规则、区间计算、安全响应头和界面文案。契约测试失败通常意味着用户可见的变化，需要有意识地做出决定。
-
-## 项目结构
-
-| 路径 | 作用 |
-|---|---|
-| `server.py` | HTTP API、采集器、存储和维护 |
-| `gpu_watch/` | 身份验证、进程归属、安全辅助、历史记录，以及可追踪配额的 Artificial Analysis 客户端 |
-| `static/` | 前端（`index.html`、`app.js`、`styles.css`）以及自带的图标和国旗 |
-| `hosts.json` | 服务器、实验室和采集设置（虚构示例） |
-| `Caddyfile`、`Dockerfile`、`Dockerfile.caddy` | 边缘代理和容器镜像 |
-| `deploy.sh` | 带备份和回滚的生产部署 |
-| `run-dashboard.ps1`、`emergency-local-fallback.ps1` | Windows 应急采集器 |
-| `scripts/` | 健康检查、数据审计、备份与恢复、管理员 PIN、SSH 辅助工具，以及磁盘助手安装脚本生成器 |
-| `tests/` | Python 和 Node 测试 |
-
-## 发布信息
-
-v3，于 2026-09-25 发布。界面页脚显示 `GPT-6 Astra Max (Implementation) · Claude Opus 5.5 Max (Frontend)`。
-
-## 致谢
-
-国旗图标来自采用 CC-BY 4.0 许可的 [Twemoji](https://github.com/jdecked/twemoji)，详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。服务图标归各自所有者所有，仅用于标示指向其状态页面的链接。
-
-## 许可证
-
-GPU Watch 采用 [MIT 许可证](LICENSE) 发布。随附的国旗图标和服务图标不在此许可证范围内，详见上方的致谢部分。
+[MIT License](LICENSE) · [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) · [Twemoji](https://github.com/jdecked/twemoji) (CC-BY 4.0).

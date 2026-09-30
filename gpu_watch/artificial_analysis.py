@@ -150,6 +150,8 @@ class ArtificialAnalysisIndex:
         self._quota = ApiQuota(self.cache_path.with_suffix(".quota.json"), self._clock)
         self._lock = threading.Lock()
         self._refreshing = False
+        self._scheduler_stop = threading.Event()
+        self._scheduler_thread: threading.Thread | None = None
         self._last_attempt_at: float | None = None
         self._cache = self._load_cache()
         if self._cache is not None:
@@ -160,6 +162,37 @@ class ArtificialAnalysisIndex:
             )
         else:
             self._next_attempt_at = self._quota.not_before
+
+    def start(self) -> None:
+        """Keep quota-backed appointments even when no browser is open."""
+        with self._lock:
+            if self._scheduler_thread is not None:
+                return
+            self._scheduler_thread = threading.Thread(
+                target=self._run_scheduler, name="gpu-watch-aa-scheduler", daemon=True,
+            )
+        self._scheduler_thread.start()
+
+    def stop(self, timeout: float = 2.0) -> None:
+        self._scheduler_stop.set()
+        worker = self._scheduler_thread
+        if worker is not None and worker.is_alive() and worker is not threading.current_thread():
+            worker.join(max(0.0, float(timeout)))
+
+    def _run_scheduler(self) -> None:
+        while not self._scheduler_stop.is_set():
+            try:
+                self.refresh_if_due()
+                with self._lock:
+                    remaining = self._next_attempt_at - self._clock()
+                    refreshing = self._refreshing
+                delay = 60.0 if refreshing else max(1.0, min(60.0, remaining))
+            except Exception:
+                # Optional upstream work must not kill the scheduler or core health.
+                audit("artificial_analysis_scheduler_failed")
+                delay = 60.0
+            if self._scheduler_stop.wait(delay):
+                return
 
     def _read_api_key(self) -> str | None:
         """Read on every attempt so key rotation never requires a service restart."""

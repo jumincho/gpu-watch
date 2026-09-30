@@ -1,122 +1,72 @@
-# GPU Watch Dashboard v3
+# GPU Watch Dashboard v2
 
-A lightweight, agentless dashboard for the GPU servers a research lab shares. It shows which GPUs are free right now, who is using the busy ones, and how much disk space is left. Data is collected over plain SSH.
+A lightweight, agentless dashboard for shared NVIDIA GPU servers. Check GPU occupancy, process owners, recent activity, storage, and lab VRAM trends from one page. Collection uses SSH; the backend uses the Python standard library and SQLite, and the frontend uses HTML, CSS, and JavaScript without a build step.
+
+**Released 2026-09-30 · GPT-6.1 Sol (max).** Release details belong in the repository and API metadata; the dashboard has no release footer.
 
 **English** | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-HK.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-![GPU Watch dashboard showing lab summary, deadline timers, and per-server GPU cards](docs/images/dashboard.png)
+This public edition contains fictional server names, documentation-range addresses, and example SSH paths. Replace them with your own configuration before deployment. Runtime credentials, databases, and internal operational documents are excluded.
 
-<sub>Screenshot with fictional demo data. The interface is in Korean with English technical labels.</sub>
+## What it provides
 
-## Why GPU Watch
+- GPU free/busy state, utilization, VRAM, temperature, recent use, and verified process summaries.
+- Multiple processes and users per GPU, lab summaries, and busy/free/DOWN/disk-warning filters.
+- Disk capacity and per-user usage, including optional Docker accounting and a restricted privileged disk helper.
+- Seven-day occupancy, long-idle/high-usage badges, hourly VRAM candles, and LAB DAILY INDEX.
+- Recent Activity with date, server, user, and pagination controls. DOWN/UP events are optional and hidden by default; observation gaps and owner changes remain internal data.
+- Six conference timers with stable colors, deadline order, registration-order ties, TBA, and local flag SVGs.
+- Editable notices with optional expiry, including notices without an expiry date.
+- Artificial Analysis Intelligence Index: server-side caching, top 29 models, concise displayed model names, and quota-aware refresh scheduling.
+- Automatic refresh with selected tabs, scroll position, and keyboard focus preserved. Forms stay open on backdrop clicks; closing a form clears its password.
 
-Before starting a job on a shared server, people usually need three answers: which GPU is free, who is using the busy ones, and whether there is enough disk space. GPU Watch answers all three on one page.
+## Collection and calculation contracts
 
-- **Agentless.** Each GPU server needs only SSH access, `nvidia-smi`, and `python3`. Nothing stays running on it.
-- **Light.** The backend uses only the Python standard library and SQLite. The frontend is plain HTML, CSS, and JavaScript with no build step.
-- **Careful.** It never guesses who owns a process and never shows full command lines. Stale readings are never presented as live.
+GPU collection defaults to **10 seconds**; disk collection defaults to **30 minutes**, with separate workers and time budgets. GPU servers need SSH, `python3`, `nvidia-smi`, `df`, and GNU `du`; Docker is optional. No collection daemon runs on a GPU server. The remote probe supports older Python installations and does not require a persistent home directory.
 
-## What's new in v3
+A GPU is busy when a compute process exists, VRAM reaches 500 MiB, or utilization reaches 10%. A resident process at 0% utilization still reserves the GPU and counts as occupancy. These metrics describe occupancy, not compute efficiency.
 
-- **Owner attribution** reads the effective UID from `/proc/<pid>/status`. Processes whose `/proc` directory looks root-owned (non-dumpable processes) are still attributed to the right user.
-- **Disk keeps refreshing** when SSH works but the GPU probe fails, for example after an NVIDIA driver mismatch.
-- **An optional privileged disk helper** measures per-user usage on servers where the monitoring account cannot read other users' home directories. See [Privileged disk helper](#privileged-disk-helper).
-- **Artificial Analysis refreshes follow the API quota.** The interval comes from the response's rate-limit headers instead of a fixed six hours.
-- **Hardening.** Creating a notice now shares the password-hashing concurrency limit, and the Caddy build pins patched OpenTelemetry modules.
-- **LF line endings everywhere**, so the release fingerprint of a Linux deployment and a Windows copy match.
-- **Interface polish.** Timer countdowns sit on the vertical centre of their cards. Long titles get priority over a single-line countdown; titles that still overflow use an ellipsis, with the full title available on hover. On phones the Intelligence Index is more compact, and Korean text wraps between words.
+Owners are verified using effective UID, NSS or a numeric UID fallback, PID start ticks, GPU UUID, and a repeated GPU process observation. A root-owned `/proc` directory alone does not establish root ownership. A verified process remains visible when ownership is temporarily unavailable. Previously confirmed owners carry over only for the same verified PID generation. When every owner is known, time is shared once among distinct users; an interval containing an unresolved owner remains unassigned rather than being overcharged to known users.
 
-## Features
+Recent use records all observed sessions. Sessions shorter than 60 seconds remain in history and occupancy totals but do not clear the long-idle badge. Long idle needs seven days of tracking and no meaningful session; it does not require 100% observation coverage. The seven-day index uses observed GPU-slot time as its denominator. Missing time is not filled with zero use, and rounded 100% coverage displays `7일 / 7일`.
 
-### GPUs and servers
+LAB DAILY INDEX sums each GPU's observation-weighted mean VRAM for the KST calendar day. Observed wall time is the union of intervals, and overlapping GPU/user intervals are not counted twice. Raw VRAM is quantized to 16 MiB; raw intervals last eight days and daily aggregates last 180 days by default.
 
-- Live status for every GPU: free or busy, utilization, VRAM, temperature, and how long it has been busy or when it was last used.
-- Processes on each GPU with their users, memory, and a short command summary. The details view adds the PID, start time, and container, but never the full command line.
-- A lab switcher, a lab-wide summary (servers online, free and busy GPUs, VRAM), and filters for busy servers, fully free servers, connection failures, and disk warnings.
-- Activity badges: 🔥 high usage (seven-day busy index of 50% or more), ❄️ long idle (no continuous use of 60 seconds or more for seven days), and ⛔ connection failure.
+DOWN means a complete GPU observation failed. Diagnostics distinguish SSH/timeout failures from driver or device faults; earlier readings are not presented as current. Disk collection continues independently and cannot bring a GPU-unobservable host UP. Driver mismatch fallback is a guarded, explicitly configured temporary option; the normal path uses the native driver.
 
-### Disk
+## Disk accounting
 
-- Free, usable, used, and reserved space. The warning badge uses the same server-wide aggregate as the Disk tab's `Used`: total used / (total used + total available), with a warning from a displayed 90%. Filesystem aliases are counted once.
-- Per-user usage from readable home directories and configured paths, plus Docker writable layers. When a result is partial, lower bounds are marked `≥` and estimates `≈`.
+The warning badge and Disk tab use the same aggregate: **sum(used) / (sum(used) + sum(available))**. Reserved blocks are outside that denominator. Filesystem aliases are counted once, and the warning begins at a displayed 90%.
 
-### History and trends
+Per-user totals combine readable home/configured paths and Docker writable layers. They do not replace filesystem totals. Images, volumes, shared blocks, and system/other data are not arbitrarily assigned to a person. Partial lower bounds use `≥`, estimates use `≈`, and Docker failures show a readable message instead of an internal command.
 
-- A Recent Activity log of busy/free transitions, filterable by date, server, and user. Connection DOWN/UP events are hidden by default and can be included.
-- A seven-day busy index and a per-user usage share for each server.
-- LAB DAILY INDEX: hourly VRAM candles for the last 24 hours and a 30-day trend of daily average VRAM.
+Where the monitoring account cannot read other users' directories, generate and review the optional helper installer:
 
-### Lab tools
-
-- Up to six conference deadline countdowns in KST, including TBA entries. Flag emoji in timer titles are drawn from bundled SVG files.
-- A bulletin board for notices with an optional expiry time. Authors edit their notices with their own passphrase, and admins can manage every notice with the admin PIN.
-- Quick links to deadline trackers, AI service status pages, and AI news. It also shows the Artificial Analysis Intelligence Index (top 29 models), which the server fetches so the API key never reaches the browser.
-
-### Everyday use
-
-- Automatic refresh every 10 seconds by default. Refreshing keeps the selected tabs, scroll position, and keyboard focus, and it slows down in background tabs. A banner appears when data stops updating.
-- Works on screens as narrow as 320 px, supports keyboard navigation, and respects reduced-motion settings. Text contrast, focus visibility, and responsive layout are checked during release review.
-
-## How it works
-
-```text
-Browser ──HTTP──▶ Caddy  (IP allowlist, compression)
-                    │
-                    ▼
-              server.py   (HTTP API · collector · maintenance)
-               │      │
-          SSH  │      └──▶ SQLite  (data/)
-               ▼
-          GPU servers  (nvidia-smi · /proc · df · du · docker)
+```sh
+python3 scripts/provision-disk-helper.py --user gpuwatch --output disk-installer.py
+# Review and transfer the installer, then run it as administrator on that GPU server.
+sudo python3 -I disk-installer.py
 ```
 
-1. Every `poll_interval_seconds` (10 s), the collector connects to all hosts in `hosts.json` in parallel. It runs `nvidia-smi` queries and a small inline Python probe on each one.
-2. Each process owner comes from the effective UID in `/proc/<pid>/status` and its NSS name, checked against the PID start time and the GPU UUID. If the owner cannot be confirmed, it is shown as unknown rather than guessed.
-3. Every `disk_poll_interval_seconds` (30 min), disk usage is measured with `df`, time-limited `du`, and `docker ps --size`, or through the optional privileged helper.
-4. Observations are stored in SQLite as time intervals. Overlapping GPUs, processes, and users are merged, so busy time is never counted twice.
-5. The page reads `/api/snapshot`, `/api/events`, `/api/insights`, and `/api/intelligence-index`.
-
-### Status rules
-
-- A GPU is **busy** if it has a compute process, uses at least 500 MiB of VRAM, or is at least 10% utilized. Both thresholds are configurable.
-- A process that keeps VRAM allocated counts as busy even at 0% utilization, so reserved GPUs are not shown as free.
-- A server is **DOWN** when a complete GPU observation fails, whether SSH or the GPU probe failed. None of its GPUs count as available, and earlier readings are not shown as current. A successful disk probe does not bring a DOWN server back UP.
-
-## Security model
-
-- **Access control.** Caddy enforces an IP allowlist. The app checks the client IP, `Host`, and `Origin` again on its own.
-- **Writes.** Changes to notices and timers require a same-origin request and a passphrase or PIN. Hashes use PBKDF2-SHA256 with 600,000 iterations. At most two hash checks run at once, and failed attempts are rate-limited per subnet and globally.
-- **Limited process details.** Full command lines, environment variables, and credentials are not sent to the browser. Process details use a short sanitized summary. Operational errors are bounded and redacted, but can contain host addresses or ports; they are not a promise of hiding network topology. Server cards intentionally show a validated IP address.
-- **Browser hardening.** A strict Content Security Policy blocks inline scripts. Icons and flags are served locally, not from third-party hosts.
-- **Containers.** They run as a non-root user with a read-only root filesystem, all capabilities dropped, `no-new-privileges`, and PID, memory, and log limits.
-- **Secrets.** SSH passwords, API keys, and the PIN hash live in git-ignored runtime folders (`secrets/`, `data/`, `operator-secrets/`), never in the repository. SSH passwords go to OpenSSH through `SSH_ASKPASS`, not on the command line.
-- **Transport.** Plain HTTP is intended for a trusted LAN only. Add TLS and authentication before exposing the dashboard more widely.
-
-## Requirements
-
-| Where | What you need |
-|---|---|
-| Dashboard host | Python 3.12 (standard library only) and the OpenSSH client, or Docker |
-| Each GPU server | SSH access for a monitoring account, the NVIDIA driver with `nvidia-smi`, `python3`, `df`, and GNU `du`. Docker is optional and adds per-container usage. The privileged disk helper additionally needs `sudo`. |
-| Viewers | A current web browser |
+The helper is root-owned, accepts no arguments, uses a fixed environment and low CPU priority, serializes scans, and caches for five minutes. Its sudoers rule permits only that fixed command with no arguments. No administrator password or daemon is stored. Enable `privileged_disk_helper` only after installation; it cannot be combined with `disk_user_paths`. Reinstall the helper after changing the disk probe.
 
 ## Quick start
+
+Use Python **3.12+** and OpenSSH, or Docker. The server code uses only standard-library modules.
 
 ```sh
 git clone https://github.com/jumincho/gpu-watch.git
 cd gpu-watch
 
-# 1. Describe your servers (see Configuration below).
+# Adapt the fictional inventory and verify SSH keys/known_hosts first.
 $EDITOR hosts.json
-
-# 2. Create the admin PIN. The script prints where the one-time plaintext PIN was saved.
 python3 scripts/admin-passphrase.py ensure
-
-# 3. Start the dashboard.
 python3 server.py --host 127.0.0.1 --port 8787
 ```
 
-Open <http://127.0.0.1:8787/>. By default, only loopback clients are allowed. To serve other machines on your LAN, list them explicitly. The addresses below are examples.
+Open <http://127.0.0.1:8787/>. The admin helper reports the one-time PIN file; store that PIN securely and remove the plaintext file. Password-based hosts use a restricted file under `secrets/` through SSH_ASKPASS, never a command-line password.
+
+To serve a specific trusted LAN, adapt these example addresses:
 
 ```sh
 GPU_WATCH_ALLOWED_NETWORKS="127.0.0.0/8,::1/128,192.0.2.0/24" \
@@ -126,151 +76,70 @@ python3 server.py --host 0.0.0.0 --port 8787
 
 ## Configuration
 
-### `hosts.json`
+`hosts.json` defines labs, collection intervals/timeouts, retention, activity thresholds, and hosts. Each host has a unique `name`, `lab`, `expected_gpu_count`, and either a verified SSH alias or `ssh_host`/`ssh_port`/`ssh_user`. Optional fields include `label`, `display_ip`, `note`, `owner`, `owner_type`, `location`, `ssh_identity_file`, `ssh_password_file`, `ssh_options`, `disk_user_paths`, `collect_docker_usage`, and `privileged_disk_helper`. Display IPs must be valid IP addresses.
 
-The bundled `hosts.json` describes a fictional lab. Replace it with your own servers.
-
-```json
-{
-  "poll_interval_seconds": 10,
-  "disk_poll_interval_seconds": 1800,
-  "busy_memory_threshold_mib": 500,
-  "busy_utilization_threshold_percent": 10,
-  "labs": [{ "id": "vision", "label": "VISION LAB" }],
-  "hosts": [
-    {
-      "name": "atlas",
-      "label": "atlas",
-      "lab": "vision",
-      "ssh_host": "192.0.2.11",
-      "ssh_port": 22,
-      "ssh_user": "gpuwatch",
-      "ssh_identity_file": "~/.ssh/id_ed25519",
-      "expected_gpu_count": 4,
-      "note": "NVIDIA GeForce RTX 4090 x4",
-      "owner": "Vision",
-      "owner_type": "assigned",
-      "location": "Room 301"
-    }
-  ]
-}
-```
-
-| Host field | Meaning |
+| Environment variable | Purpose |
 |---|---|
-| `name` | Unique ID (letters, digits, `.`, `_`, `-`). It is also used as the SSH alias when `ssh_host` is omitted. |
-| `label`, `lab` | Display name and the lab it belongs to |
-| `ssh_host`, `ssh_port`, `ssh_user` | Connection target |
-| `ssh_identity_file` | Private key for key-based login |
-| `ssh_password_file`, `ssh_options` | Password-based login. The password file sits under `secrets/` and is read at runtime. |
-| `display_ip` | The IP shown on the card for alias-based hosts |
-| `expected_gpu_count` | Number of GPU slots to keep showing while the server is down |
-| `note`, `owner`, `owner_type`, `location` | Card text and badge style (`assigned` or `shared`) |
-| `disk_user_paths` | Extra per-user paths to measure, as `{ "user": …, "path": … }` |
-| `collect_docker_usage` | Also measure Docker writable layers with `docker ps --size`. On by default only for hosts in the `nll` lab. |
-| `privileged_disk_helper` | Measure disk usage through the installed root helper. Cannot be combined with `disk_user_paths`. |
+| `GPU_WATCH_ALLOWED_NETWORKS` | Explicit client IP allowlist; loopback by default |
+| `GPU_WATCH_ALLOWED_HOSTS` | Accepted Host header values |
+| `GPU_WATCH_TRUSTED_PROXY_NETWORKS` | Only these peers may supply a trusted forwarding chain |
+| `GPU_WATCH_SSH_CONFIG_FILE`, `GPU_WATCH_SSH_IDENTITY_FILE` | Reviewed SSH configuration and identity paths |
+| `GPU_WATCH_ADMIN_PIN_HASH` | Optional admin PIN hash override |
+| `GPU_WATCH_RUNTIME_MODE` | `standalone`, `production`, or `emergency` |
+| `GPU_WATCH_BUILD_VERSION` | Must agree with the checked-in VERSION |
 
-Other top-level settings include probe timeouts, `collector_workers`, the `activity_policy` thresholds for the 🔥 and ❄️ badges, and retention periods. Events are kept for 180 days and daily backups for 14 days by default. Notices are purged 90 days after deletion or expiry; notices without an expiry remain until deleted.
+For the Intelligence Index, put the API key in `secrets/artificial_analysis_api_key`, owned by the app user with mode `0600` and a restricted parent directory. The browser sees cached rankings only. Redirects are refused, so the key stays on the configured API origin.
 
-### Environment variables
+The AA client spreads full-page refreshes across the API's `X-RateLimit-*` window, reserves up to eight requests, and persists reservations before requests. At 100 requests per day and four pages, updates are roughly hourly; the minimum interval is 15 minutes. A small scheduler keeps appointments even without viewers. Missing headers use a conservative six-hour fallback, failures retry after one hour or a longer Retry-After, and data older than 48 hours is stale. The page checks its own server cache every five minutes. Index versions are displayed as supplied by the API, without inventing a patch version.
 
-| Variable | Purpose | Default |
-|---|---|---|
-| `GPU_WATCH_ALLOWED_NETWORKS` | Client IP allowlist (comma-separated CIDR ranges) | loopback |
-| `GPU_WATCH_ALLOWED_HOSTS` | Accepted `Host` header values | loopback |
-| `GPU_WATCH_TRUSTED_PROXY_NETWORKS` | Reverse proxies whose `X-Forwarded-For` header is trusted | loopback |
-| `GPU_WATCH_SSH_CONFIG_FILE` | Absolute path to an OpenSSH config file to use | none |
-| `GPU_WATCH_SSH_IDENTITY_FILE` | Overrides the per-host identity file | none |
-| `GPU_WATCH_ADMIN_PIN_HASH` | Admin PIN hash, used instead of `data/admin_pin.hash` | none |
-| `GPU_WATCH_RUNTIME_MODE` | `standalone`, `production`, or `emergency` | `standalone` |
-| `GPU_WATCH_BUILD_VERSION` | Release number shown in the footer | `VERSION` |
+## Security and deployment
 
-### Artificial Analysis
+Caddy and the app both enforce IP/Host policy. Writes require a same-origin request and a notice passphrase or admin PIN. PBKDF2-SHA256 uses 600,000 iterations, password checks have a two-worker concurrency cap, and failures are limited per subnet and globally. Full process command lines, environment variables, and option values are never exposed. Static files are explicitly allowlisted, symlinks and traversal are refused, and a strict CSP prevents external frontend scripts. Password-manager ignore hints reduce save prompts; browser policy can still override page hints.
 
-To show the Intelligence Index, put the API key in `secrets/artificial_analysis_api_key`. It must be a regular file, not a symlink, with mode `0600`. The browser receives only the cached rankings.
+The reference deployment uses plain HTTP on a trusted LAN. IP filtering is not transport encryption; use an appropriate encrypted/authenticated deployment before expanding the trust boundary. The AI Deadlines link intentionally uses its working HTTP URL.
 
-- The server spreads complete refreshes across the quota window using the response's `X-RateLimit-*` headers and the number of pages. It keeps a few requests in reserve (up to 8) and never refreshes more often than every 15 minutes. With a quota of 100 requests a day and four pages, that is about once an hour.
-- When the quota runs low, it waits until the quota resets. Each request is counted before it is sent, so a restart or a network error never makes it think it has requests left.
-- Without rate-limit headers it refreshes every six hours. After a failure it retries in one hour, or later if the API sends a longer `Retry-After`. Data older than 48 hours is marked stale.
-- Quota state (limit, remaining, reset time, pages, next attempt) is saved next to the cache in `data/`, separately from the key.
-- The page checks the server cache every five minutes. If nobody has the page open, a refresh can wait until the next maintenance cycle (hourly by default).
+`Dockerfile` and `Dockerfile.caddy` pin base digests and dependencies. Containers run as a non-root user with a read-only root filesystem, dropped capabilities, `no-new-privileges`, and PID/memory/log limits. Caddy alone publishes a port; the app stays on an internal network.
 
-## Privileged disk helper
+Adapt `deploy.sh`, `Caddyfile`, SSH paths, and LAN addresses before use. The deployment script validates paths, takes a verified SQLite backup before mutation, keeps previous containers through health/access checks, and rolls back containers, SSH runtime files, and the database on failure. It cleans only this project's labelled unused build images.
 
-On some servers the monitoring account cannot read other users' home directories, so per-user totals stay partial. For those servers you can install a small root helper that runs only GPU Watch's own disk collector.
+## Emergency copy and operations
 
-```sh
-# Generate a reviewable installer (this does not install anything).
-python3 scripts/provision-disk-helper.py --user gpuwatch --output disk-installer.py
+The Windows helper is a reference for a manually started emergency copy. Adapt its paths, addresses, and SSH configuration first. Production and emergency source must share VERSION and the release fingerprint, which hashes `VERSION`, `server.py`, `hosts.json`, `gpu_watch/`, and `static/`. Also compare a complete file manifest because scripts/docs/tests sit outside that fingerprint.
 
-# Review disk-installer.py, copy it to the GPU server, and run it there as an administrator.
-sudo python3 -I disk-installer.py
+```powershell
+.\emergency-local-fallback.ps1 -Action Status
+.\emergency-local-fallback.ps1 -Action Start
+.\emergency-local-fallback.ps1 -Action Stop
 ```
 
-The installer adds `/usr/local/libexec/gpu-watch-disk`, a sudoers rule that lets the monitoring account run exactly that helper with no arguments, and a cache folder in `/var/cache/gpu-watch/`. The helper accepts no paths, commands, or environment. It prevents concurrent scans, caches results for five minutes, and runs at low CPU priority. No daemon is installed, and no administrator password is stored.
-
-The example configuration leaves the helper disabled: an omitted or false `privileged_disk_helper` does not use sudo. After installing, set `"privileged_disk_helper": true` only for that host. If the helper is missing, GPU Watch falls back to an unprivileged scan within the same time budget and marks per-user usage as partial.
-
-## Deployment
-
-The reference production setup runs two hardened containers. Caddy is the only published port; the app stays on an internal Docker network.
-
-- `Dockerfile` builds the app on a digest-pinned `python:3.12-alpine` image.
-- `Dockerfile.caddy` builds Caddy from a pinned commit and pinned dependency versions.
-- `deploy.sh` is the deployment script for the lab's production host. It checks paths and permissions, builds both images, and validates SSH and Caddy configuration. Immediately before switching, it stops the app and creates and validates an online SQLite backup. It keeps the previous containers, checks the new deployment's health and access controls, and rolls back on failure. To reuse it elsewhere, change the host-specific paths and addresses first.
-
-The release fingerprint hashes `VERSION`, `server.py`, `hosts.json`, `gpu_watch/`, and `static/`. Production and the emergency copy must match it.
-
-### Windows emergency fallback
-
-`emergency-local-fallback.ps1 -Action Status|Start|Stop` manages the Windows emergency copy. Adapt its reference paths, production address, SSH configuration, and LAN ranges to your environment first. `Start` refuses while production is reachable unless you pass `-Force`. It verifies `VERSION`, the release fingerprint, and a fresh collection cycle, and limits the firewall rule to the configured LAN. `Stop` removes its listener, firewall rule, and temporary password files. The local database is separate, so reconcile notices and timers created during an outage before switching back.
-
-## Operations
+Start refuses a reachable production instance unless `-Force` requests a deliberate takeover; Force still cannot bypass a version/fingerprint mismatch. The app stays a standard-user process; only the restricted LAN firewall operation requires Windows UAC. A fresh collection cycle must pass before startup succeeds. Stop checks the exact Python/script/port identity, removes its firewall rule and temporary SSH secret, and leaves unrelated processes alone. The emergency copy is normally OFF. Reconcile notices/timers created during an outage before returning to production.
 
 ```sh
-# Health of a running container
-docker exec gpu-watch-dashboard python3 /app/scripts/check_local.py --health-only --expected-build-version 3
-
-# SQLite integrity and aggregation invariants
+docker exec gpu-watch-dashboard python3 /app/scripts/check_local.py --health-only --expected-build-version 2
 python3 scripts/audit-data.py data/gpu_watch.sqlite3
-
-# Restore a backup inside data/backups (path, SQLite integrity, foreign keys, schema)
 sh scripts/restore-backup.sh "$PWD/data/backups/backup.sqlite3"
+python3 -m unittest discover -s tests -v
+node tests/test_frontend.js
 ```
 
-The maintenance worker makes daily SQLite backups. `deploy.sh` adds a backup before each deployment. There is no automatic off-site copy; `scripts/offsite-backup.sh` is a manual tool.
+Daily SQLite backups remain on the deployment host for 14 days by default; pre-deployment backups remain for 30 days. Events and daily indices last 180 days. Notices without an expiry remain until deleted. There is no automatic offsite backup; the supplied offsite script is a manual tool.
 
-## Development and tests
+Run the complete development suite on Windows or a Linux host with GNU coreutils (`du` and its exclusion options). The minimal Alpine application image uses BusyBox and is not the environment for GNU `du` integration fixtures. See [v2 release validation](RELEASE_VALIDATION.md) for the checked environments and scope.
 
-```sh
-python3 -m unittest discover -s tests -v   # Python regression and contract tests
-node tests/test_frontend.js                # frontend logic contracts
-```
+## Source layout and maintenance
 
-The tests also lock product behavior, such as status rules, interval math, security headers, and UI wording. A failing contract test usually means a user-visible change that needs a deliberate decision.
-
-## Project layout
-
-| Path | Purpose |
+| Path | Responsibility |
 |---|---|
-| `server.py` | HTTP API, collector, storage, and maintenance |
-| `gpu_watch/` | Authentication, process attribution, security helpers, history, and the Artificial Analysis client with quota tracking |
-| `static/` | Frontend (`index.html`, `app.js`, `styles.css`) plus bundled icons and flags |
-| `hosts.json` | Servers, labs, and collection settings (fictional example) |
-| `Caddyfile`, `Dockerfile`, `Dockerfile.caddy` | Edge proxy and container images |
-| `deploy.sh` | Production deployment with backup and rollback |
-| `run-dashboard.ps1`, `emergency-local-fallback.ps1` | Windows emergency collector |
-| `scripts/` | Health checks, data audit, backup and restore, admin PIN, SSH helpers, and the disk helper installer generator |
-| `tests/` | Python and Node test suites |
+| `server.py` | Probe, Store, Collector, API, lifecycle |
+| `gpu_watch/` | Authentication, security, ownership/history, maintenance, AA/quota |
+| `static/` | HTML/CSS/JS, bundled service icons and flag SVGs |
+| `hosts.json` | Fictional inventory and validated collection policy |
+| `deploy.sh`, Dockerfiles, `Caddyfile` | Deployment, edge, isolation |
+| Windows helpers and `scripts/` | Emergency operation, SSH, backups, health, disk helper |
+| `tests/` | Behavioral regressions, independent interval oracles, API/security/UI contracts |
 
-## Release
+Keep migrations, meaningful regressions, verified backups, and timer colors. Avoid rewriting the monolithic Store/probe while changing UI: use focused modules and preserve the explicit calculation contracts. Release validation establishes tested behavior at a stated source version, not a guarantee against every future environment or failure.
 
-v3, released on 2026-09-25. The interface footer credits `GPT-6 Astra Max (Implementation) · Claude Opus 5.5 Max (Frontend)`.
+## License and attribution
 
-## Acknowledgements
-
-Flag icons come from [Twemoji](https://github.com/jdecked/twemoji) under CC-BY 4.0; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Service icons belong to their respective owners and are used only to label links to their status pages.
-
-## License
-
-GPU Watch is released under the [MIT License](LICENSE). The license does not cover the bundled flag and service icons; see Acknowledgements above.
+[MIT License](LICENSE). Bundled flags derive from [Twemoji](https://github.com/jdecked/twemoji) under CC-BY 4.0; service icons belong to their respective owners. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

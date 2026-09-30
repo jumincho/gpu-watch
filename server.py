@@ -571,6 +571,7 @@ def process_metadata(pid):
     # The effective UID in status is authoritative; directory ownership is a
     # fallback only when that field cannot be read. Revalidation below still
     # proves the PID generation before any owner is published.
+    owner_status_read = False
     try:
         with open("/proc/%s/status" % pid, "r", encoding="utf-8", errors="replace") as f:
             for line in f:
@@ -578,11 +579,17 @@ def process_metadata(pid):
                     fields = line.split()
                     if len(fields) == 5 and all(value.isdigit() for value in fields[1:]):
                         uid = int(fields[2])
+                        owner_status_read = True
                     break
     except (FileNotFoundError, ProcessLookupError):
         return None
     except Exception:
         pass
+    # A root-owned proc directory also belongs to non-dumpable non-root jobs.
+    # If status is unreadable, let the verified ps fallback resolve the owner;
+    # do not manufacture root/container attribution from directory ownership.
+    if uid == 0 and not owner_status_read:
+        uid = None
     if uid is not None:
         try:
             result["user"] = pwd.getpwuid(uid).pw_name
@@ -646,7 +653,7 @@ if missing_owner_pids:
 if apps:
     pid_arg = ",".join(str(app["pid"]) for app in apps)
     rc, out, err = run(
-        ["ps", "-o", "pid=,user=,lstart=,comm=", "-p", pid_arg],
+        ["ps", "-o", "pid=,user:64=,lstart=,comm=", "-p", pid_arg],
         timeout=remote_cmd_timeout,
     )
     if rc == 0:
@@ -658,7 +665,10 @@ if apps:
                 except Exception:
                     continue
                 meta = owners.setdefault(pid, {"user": "", "started": "", "process_name": ""})
-                meta["user"] = meta.get("user") or parts[1]
+                ps_user = parts[1]
+                if ps_user == "?" or ps_user.endswith("+"):
+                    ps_user = ""
+                meta["user"] = meta.get("user") or ps_user
                 meta["started"] = " ".join(parts[2:7])
                 meta["process_name"] = (
                     meta.get("process_name")
@@ -752,14 +762,14 @@ for app in apps:
     meta = owners.get(app["pid"], {})
     # nvidia-smi and procfs are separate observations. If the PID vanished
     # between them, omit the stale process rather than manufacture ownership.
-    if not meta or not meta.get("user"):
+    if not meta:
         continue
     container_id, container_name = container_names_by_pid.get(app["pid"], ("", ""))
     # Unknown ownership remains empty at the data boundary.  The dashboard may
     # render a localized label, but a synthetic "?" must never become an event
     # owner or be persisted in a process snapshot.
     user = meta.get("user", "")
-    if container_name and user in {"", "root"}:
+    if container_name and user == "root":
         user = container_name
     process_name = os.path.basename(meta.get("process_name") or app.get("process_name", ""))[:128]
     command_summary = command_summary_for_pid(app["pid"], process_name)
@@ -1613,6 +1623,21 @@ def confirmed_process_users(processes: Any) -> list[str]:
     })
 
 
+def attributable_process_users(processes: Any) -> list[str]:
+    """Charge a GPU interval only when every observed process owner is known.
+
+    A partially resolved cohort cannot prove that all time belongs to its known
+    members. Preserve those members for display, but leave that interval
+    unassigned until the remaining owners can be verified.
+    """
+    if not isinstance(processes, list) or not processes:
+        return []
+    if any(not isinstance(p, dict) or clean_text(p.get("user"), 64) in ("", "?")
+           for p in processes):
+        return []
+    return confirmed_process_users(processes)
+
+
 def carry_verified_process_owners(previous: Any, current: Any) -> bool:
     """Carry each proven PID generation independently as sibling jobs change."""
     if not isinstance(previous, list) or not isinstance(current, list):
@@ -1658,8 +1683,10 @@ def parse_user_seconds(value: str | None) -> dict[str, float]:
         if not isinstance(user, str) or not user.strip() or user.strip() == "?":
             continue
         try:
-            result[user] = max(0.0, float(seconds))
-        except (TypeError, ValueError):
+            numeric = float(seconds)
+            if math.isfinite(numeric):
+                result[user] = max(0.0, numeric)
+        except (TypeError, ValueError, OverflowError):
             continue
     return result
 
@@ -2807,7 +2834,7 @@ class Store:
                 "unassigned_segments": [],
             })
             host_usage["busy_seconds"] += duration
-            users = confirmed_process_users(json.loads(item.get("last_processes_json") or "[]"))
+            users = attributable_process_users(json.loads(item.get("last_processes_json") or "[]"))
             add_user_seconds(host_usage["user_seconds"], users, duration)
             if not users:
                 host_usage["unassigned_segments"].append((start_ts, ts))
@@ -3833,7 +3860,8 @@ class Store:
             except Exception:
                 previous_processes = []
             previous_users = confirmed_process_users(previous_processes)
-            previous_user_text = ", ".join(previous_users) if previous_users else None
+            previous_attributed_users = attributable_process_users(previous_processes)
+            previous_user_text = ", ".join(previous_attributed_users) if previous_attributed_users else None
             if busy and carry_verified_process_owners(previous_processes, processes):
                 users = confirmed_process_users(processes)
                 user_text = ", ".join(users) if users else None
@@ -3881,7 +3909,7 @@ class Store:
                         # Attribute elapsed time from the process evidence saved
                         # at the start of the interval, not from display-only
                         # last_user carryover used for one drain sample.
-                        add_user_seconds(user_seconds, previous_users, elapsed)
+                        add_user_seconds(user_seconds, previous_attributed_users, elapsed)
                         self._record_busy_interval(
                             conn, host, gpu_index, float(last_seen), ts, previous_user_text
                         )
@@ -4128,7 +4156,7 @@ class Store:
                     observed_seconds += live_elapsed
                     if item["busy"]:
                         busy_seconds += live_elapsed
-                        add_user_seconds(user_seconds, confirmed_process_users(json.loads(item.get("last_processes_json") or "[]")), live_elapsed)
+                        add_user_seconds(user_seconds, attributable_process_users(json.loads(item.get("last_processes_json") or "[]")), live_elapsed)
 
             host_usage = usage_by_host.setdefault(item["host"], {
                 "observed_seconds": 0.0,
@@ -5935,7 +5963,7 @@ def main() -> None:
         signal.signal(signal.SIGTERM, request_shutdown)
         signal.signal(signal.SIGINT, request_shutdown)
     try:
-        Handler.artificial_analysis.refresh_if_due()
+        artificial_analysis.start()
         collector.start()
         collector_started = True
         maintenance.start()
@@ -5945,6 +5973,7 @@ def main() -> None:
     except KeyboardInterrupt:
         pass
     finally:
+        artificial_analysis.stop(timeout=2)
         if collector_started:
             collector.stop(timeout=7)
         if maintenance_started:

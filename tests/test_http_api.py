@@ -64,7 +64,8 @@ class ServiceLifecycleTests(unittest.TestCase):
                 mock.patch("server.signal.signal"):
             with self.assertRaisesRegex(RuntimeError, "maintenance start failed"):
                 server.main()
-        intelligence.refresh_if_due.assert_called_once()
+        intelligence.start.assert_called_once()
+        intelligence.stop.assert_called_once_with(timeout=2)
         collector.start.assert_called_once()
         collector.stop.assert_called_once_with(timeout=7)
         maintenance.stop.assert_not_called()
@@ -257,14 +258,10 @@ class HttpApiTests(unittest.TestCase):
         with self.request("/") as response:
             body = response.read().decode("utf-8")
             self.assertEqual(response.status, 200)
-            self.assertIn(
-                f"GPU Watch · Release v2-test · {server.__release_date__}",
-                body,
-            )
-            self.assertIn(
-                f"{server.__release_model__} (Implementation) · Claude Opus 5.5 Max (Frontend)",
-                body,
-            )
+            self.assertNotIn('class="site-footer"', body)
+            self.assertNotIn('GPU Watch · Release', body)
+            self.assertNotIn('(Implementation)', body)
+            self.assertNotIn('(Frontend)', body)
             self.assertNotIn("__GPU_WATCH_BUILD_VERSION__", body)
             self.assertNotIn("__GPU_WATCH_ASSET_VERSION__", body)
             self.assertNotIn("__GPU_WATCH_RELEASE_MODEL__", body)

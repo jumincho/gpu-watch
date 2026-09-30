@@ -30,7 +30,7 @@ class CollectorProbeTests(unittest.TestCase):
         self.assertIn('uid = int(os.stat("/proc/%s" % pid).st_uid)', server.REMOTE_PROBE)
         self.assertIn('result["user"] = pwd.getpwuid(uid).pw_name', server.REMOTE_PROBE)
         self.assertIn('result["user"] = "uid:%s" % uid', server.REMOTE_PROBE)
-        self.assertIn('if not meta or not meta.get("user"):\n        continue', server.REMOTE_PROBE)
+        self.assertIn('if not meta:\n        continue', server.REMOTE_PROBE)
         self.assertIn('user = meta.get("user", "")', server.REMOTE_PROBE)
         self.assertNotIn('meta.get("user", "?")', server.REMOTE_PROBE)
         self.assertNotIn("nvidia_smi_docker_container", server.REMOTE_PROBE)
