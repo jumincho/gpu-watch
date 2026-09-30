@@ -202,10 +202,12 @@ button:disabled {
   line-height: 1;
 }
 
+/* The bottom padding keeps the last panel clear of the floating
+   back-to-top button (20px inset + 40px button + breathing room). */
 main {
   width: min(1680px, 100%);
   margin: 0 auto;
-  padding: 18px 18px 28px;
+  padding: 18px 18px 76px;
 }
 
 .lab-row {
@@ -2828,6 +2830,16 @@ main {
   }
 }
 
+/* The legend and the filter chips only share a row on wide screens; below
+   that, stack them so the chips stay together on one line. */
+@media (min-width: 761px) and (max-width: 1299px) {
+  .dashboard-tools {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+}
+
 @media (min-width: 761px) and (max-width: 1100px) {
   .lab-pulse {
     grid-template-columns: minmax(230px, 0.62fr) minmax(420px, 1fr);
@@ -2966,7 +2978,7 @@ main {
   }
 
   main {
-    padding: 12px;
+    padding: 12px 12px 76px;
   }
 
   .summary-grid {
