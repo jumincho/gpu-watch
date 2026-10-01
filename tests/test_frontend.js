@@ -82,6 +82,11 @@ check("norma physical AI badge is distinct from the shared badge",()=>{
  assert.match(physical,/>피지컬 AI 2 \/ Room 305</);
  assert.match(shared,/owner-badge shared/);
  assert.doesNotMatch(physical,/owner-badge shared/);
+ const serving=context.renderOwnerBadge({owner:'App <serving>',owner_type:"app_serving",location:"Room 203"});
+ assert.match(serving,/owner-badge app-serving/);
+ assert.match(serving,/title="담당 서버"/);
+ assert.match(serving,/>App &lt;serving&gt; \/ Room 203</);
+ assert.doesNotMatch(serving,/피지컬 AI 2 서버|<serving>/);
 });
 check("TBA sorts last, preserves tone and legacy scheduled defaults",()=>{
  const deadlines=context.normalizedDeadlines([

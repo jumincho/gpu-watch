@@ -1505,6 +1505,8 @@ function renderOwnerBadge(host) {
   if (host.owner_type === "physical_ai_2") {
     type = "physical-ai-2";
     title = "피지컬 AI 2 서버";
+  } else if (host.owner_type === "app_serving") {
+    type = "app-serving";
   } else if (host.owner_type === "shared" || owner === "공용") {
     type = "shared";
     title = "공용 서버";
