@@ -2,6 +2,8 @@
 
 研究室で共有する GPU サーバーのための、軽量でエージェント不要のダッシュボードです。いま空いている GPU、使用中の GPU を使っている人、残りのディスク容量がひと目でわかります。データは通常の SSH だけで収集します。
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) ![Python 3.12](https://img.shields.io/badge/python-3.12-3776ab.svg) ![Dependencies: standard library only](https://img.shields.io/badge/dependencies-stdlib%20only-success.svg) ![Frontend: no build step](https://img.shields.io/badge/frontend-no%20build%20step-informational.svg)
+
 **v2.5** · 2026-10-03 リリース · GPT-6 Astra Ultra · [リリース検証](RELEASE_VALIDATION.md)
 
 [English](README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-HK.md) | **日本語** | [한국어](README.ko.md)
@@ -133,7 +135,7 @@ python3 scripts/admin-passphrase.py ensure
 python3 server.py --host 127.0.0.1 --port 8787
 ```
 
-<http://127.0.0.1:8787/> を開きます。管理者 PIN は安全な場所に保管し、平文のファイルは削除してください。
+<http://127.0.0.1:8787/> を開きます。管理者 PIN は安全な場所に保管し、平文のファイルは削除してください。後から新しい 4 桁の PIN に変更するには `python3 scripts/admin-passphrase.py rotate` を実行します。
 
 既定ではループバックのクライアントしか接続できません。LAN 内のほかのマシンから見る場合は、許可する対象を明示してください。以下のアドレスは例です。
 
@@ -184,9 +186,9 @@ python3 server.py --host 0.0.0.0 --port 8787
 | `ssh_password_file`、`ssh_options` | パスワード認証。パスワードファイルは `secrets/` の下に置き、実行時に読み込みます。 |
 | `display_ip` | エイリアスで接続するホストのカードに表示する IP。有効な IP アドレスでなければなりません。 |
 | `expected_gpu_count` | サーバーが DOWN のあいだも表示し続ける GPU の枠の数 |
-| `note`、`owner`、`owner_type`、`location` | カードに表示する文言とバッジのスタイル（`assigned` または `shared`） |
+| `note`、`owner`、`owner_type`、`location` | カードに表示する文言とバッジのスタイル。`assigned` または `shared`（`owner` が `공용` の場合も shared 扱い）のほか、研究室固有の `physical_ai_2` と `app_serving` があります |
 | `disk_user_paths` | 追加で測定するユーザー別のパス。`{ "user": …, "path": … }` の形式です。 |
-| `collect_docker_usage` | `docker ps --size` で Docker の書き込みレイヤーも測定します。既定で有効なのは `nll` 研究室のホストだけです。 |
+| `collect_docker_usage` | `docker ps --size` で Docker の書き込みレイヤーも測定します。既定で有効なのは `lab` が `nll` のホストだけです。ほかの研究室では明示的に設定してください。 |
 | `privileged_disk_helper` | インストールした root ヘルパーでディスク使用量を測定します。`disk_user_paths` とは併用できません。 |
 
 このほかのトップレベルの設定には、プローブのタイムアウト、`collector_workers`、🔥 と ❄️ のバッジの基準を決める `activity_policy`、保存期間があります。

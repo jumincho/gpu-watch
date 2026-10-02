@@ -2,6 +2,8 @@
 
 A lightweight, agentless dashboard for the GPU servers a research lab shares. It shows which GPUs are free right now, who is using the busy ones, and how much disk space is left. Data is collected over plain SSH.
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) ![Python 3.12](https://img.shields.io/badge/python-3.12-3776ab.svg) ![Dependencies: standard library only](https://img.shields.io/badge/dependencies-stdlib%20only-success.svg) ![Frontend: no build step](https://img.shields.io/badge/frontend-no%20build%20step-informational.svg)
+
 **v2.5** · released 2026-10-03 · GPT-6 Astra Ultra · [release validation](RELEASE_VALIDATION.md)
 
 **English** | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-HK.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
@@ -133,7 +135,7 @@ python3 scripts/admin-passphrase.py ensure
 python3 server.py --host 127.0.0.1 --port 8787
 ```
 
-Open <http://127.0.0.1:8787/>. Store the admin PIN somewhere safe and delete the plaintext file.
+Open <http://127.0.0.1:8787/>. Store the admin PIN somewhere safe and delete the plaintext file. To set a new four-digit PIN later, run `python3 scripts/admin-passphrase.py rotate`.
 
 By default, only loopback clients are allowed. To serve other machines on your LAN, list them explicitly. The addresses below are examples.
 
@@ -184,9 +186,9 @@ The bundled `hosts.json` describes a fictional lab. Replace it with your own ser
 | `ssh_password_file`, `ssh_options` | Password-based login. The password file sits under `secrets/` and is read at runtime. |
 | `display_ip` | The IP shown on the card for alias-based hosts. It must be a valid IP address. |
 | `expected_gpu_count` | Number of GPU slots to keep showing while the server is down |
-| `note`, `owner`, `owner_type`, `location` | Card text and badge style (`assigned` or `shared`) |
+| `note`, `owner`, `owner_type`, `location` | Card text and badge style: `assigned` or `shared` (an owner of `공용` also counts as shared), plus the lab-specific `physical_ai_2` and `app_serving` styles |
 | `disk_user_paths` | Extra per-user paths to measure, as `{ "user": …, "path": … }` |
-| `collect_docker_usage` | Also measure Docker writable layers with `docker ps --size`. On by default only for hosts in the `nll` lab. |
+| `collect_docker_usage` | Also measure Docker writable layers with `docker ps --size`. On by default only for hosts whose `lab` is `nll`; set it explicitly for other labs. |
 | `privileged_disk_helper` | Measure disk usage through the installed root helper. Cannot be combined with `disk_user_paths`. |
 
 Other top-level settings cover probe timeouts, `collector_workers`, the `activity_policy` thresholds for the 🔥 and ❄️ badges, and retention:

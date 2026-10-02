@@ -2,6 +2,8 @@
 
 연구실이 함께 쓰는 GPU 서버를 위한 가볍고 에이전트가 필요 없는 대시보드입니다. 지금 비어 있는 GPU, 사용 중인 GPU의 사용자, 남은 디스크 용량을 보여 줍니다. 데이터는 일반 SSH로만 수집합니다.
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) ![Python 3.12](https://img.shields.io/badge/python-3.12-3776ab.svg) ![Dependencies: standard library only](https://img.shields.io/badge/dependencies-stdlib%20only-success.svg) ![Frontend: no build step](https://img.shields.io/badge/frontend-no%20build%20step-informational.svg)
+
 **v2.5** · 2026-10-03 릴리스 · GPT-6 Astra Ultra · [릴리스 검증](RELEASE_VALIDATION.md)
 
 [English](README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-HK.md) | [日本語](README.ja.md) | **한국어**
@@ -133,7 +135,7 @@ python3 scripts/admin-passphrase.py ensure
 python3 server.py --host 127.0.0.1 --port 8787
 ```
 
-<http://127.0.0.1:8787/>을 엽니다. 관리자 PIN은 안전한 곳에 보관하고 평문 파일은 지우세요.
+<http://127.0.0.1:8787/>을 엽니다. 관리자 PIN은 안전한 곳에 보관하고 평문 파일은 지우세요. 나중에 새 4자리 PIN으로 바꾸려면 `python3 scripts/admin-passphrase.py rotate`를 실행합니다.
 
 기본값으로는 루프백 클라이언트만 접속할 수 있습니다. LAN의 다른 컴퓨터에서 보려면 허용할 대상을 명시하세요. 아래 주소는 예시입니다.
 
@@ -184,9 +186,9 @@ python3 server.py --host 0.0.0.0 --port 8787
 | `ssh_password_file`, `ssh_options` | 비밀번호 로그인. 비밀번호 파일은 `secrets/` 아래에 두며 실행 중에 읽습니다. |
 | `display_ip` | 별칭으로 접속하는 호스트의 카드에 표시할 IP. 올바른 IP 주소여야 합니다. |
 | `expected_gpu_count` | 서버가 DOWN일 때도 계속 보여 줄 GPU 칸 수 |
-| `note`, `owner`, `owner_type`, `location` | 카드에 표시할 문구와 배지 스타일(`assigned` 또는 `shared`) |
+| `note`, `owner`, `owner_type`, `location` | 카드에 표시할 문구와 배지 스타일. `assigned` 또는 `shared`(`owner`가 `공용`이어도 shared로 표시)와 연구실 전용 `physical_ai_2`, `app_serving` 스타일이 있습니다 |
 | `disk_user_paths` | 추가로 측정할 사용자별 경로. `{ "user": …, "path": … }` 형식입니다. |
-| `collect_docker_usage` | `docker ps --size`로 Docker 쓰기 계층도 측정합니다. 기본으로는 `nll` 연구실의 호스트에서만 켜집니다. |
+| `collect_docker_usage` | `docker ps --size`로 Docker 쓰기 계층도 측정합니다. 기본으로는 `lab`이 `nll`인 호스트에서만 켜지며, 다른 연구실에서는 직접 설정합니다. |
 | `privileged_disk_helper` | 설치한 root helper로 디스크 사용량을 측정합니다. `disk_user_paths`와 함께 쓸 수 없습니다. |
 
 그 밖의 최상위 설정으로는 프로브 제한 시간, `collector_workers`, 🔥·❄️ 배지 기준을 정하는 `activity_policy`, 보존 기간이 있습니다.
