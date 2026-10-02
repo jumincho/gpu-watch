@@ -47,7 +47,9 @@ class MaintenanceWorker:
                 error = None
             except Exception as exc:  # pragma: no cover - defensive worker boundary
                 result = {}
-                error = str(exc)
+                # Status is returned by /api/health. Exception text can contain
+                # filesystem paths or upstream secrets; expose only its class.
+                error = type(exc).__name__
             with self._lock:
                 self.last_completed_at = time.time()
                 self.last_error = error

@@ -75,6 +75,22 @@ def verify_passphrase(passphrase: str | None, encoded: str | None) -> bool:
         return False
 
 
+
+def is_valid_passphrase_hash(encoded: str | None) -> bool:
+    """Validate a supported stored hash without knowing or changing its PIN."""
+    try:
+        algorithm, iterations, salt, digest_text = str(encoded or "").split("$", 3)
+        digest = base64.b64decode(digest_text.encode("ascii"), validate=True)
+        return (
+            algorithm == PIN_HASH_ALGORITHM
+            and 1 <= int(iterations) <= MAX_PIN_HASH_ITERATIONS
+            and 8 <= len(salt) <= 128
+            and len(digest) == hashlib.sha256().digest_size
+        )
+    except (TypeError, ValueError):
+        return False
+
+
 def hash_needs_upgrade(encoded: str | None) -> bool:
     try:
         algorithm, iterations, salt, digest_text = str(encoded or "").split("$", 3)

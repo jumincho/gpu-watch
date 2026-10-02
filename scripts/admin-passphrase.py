@@ -15,6 +15,7 @@ from gpu_watch.auth import (  # noqa: E402 -- repository root must precede this 
     hash_needs_upgrade,
     hash_passphrase,
     is_valid_pin,
+    is_valid_passphrase_hash,
 )
 
 
@@ -34,14 +35,19 @@ def atomic_write(path: Path, text: str) -> None:
 
 def ensure(hash_path: Path, initial_path: Path) -> int:
     encoded = hash_path.read_text(encoding="utf-8").strip() if hash_path.exists() else ""
-    if encoded and not hash_needs_upgrade(encoded):
+    if encoded:
+        if not is_valid_passphrase_hash(encoded):
+            raise ValueError("admin passphrase hash is invalid; use explicit rotate to repair it")
         if initial_path.exists():
             print(
                 f"warning: plaintext initial passphrase still exists at {initial_path}; "
                 "remove it after secure storage",
                 file=sys.stderr,
             )
-        print("admin passphrase hash is current")
+        if hash_needs_upgrade(encoded):
+            print("admin passphrase retained; hash will upgrade after successful authentication")
+        else:
+            print("admin passphrase hash is current")
         return 0
     passphrase = f"{secrets.randbelow(10_000):04d}"
     new_hash = hash_passphrase(passphrase)

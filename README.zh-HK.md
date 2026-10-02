@@ -1,8 +1,8 @@
-# GPU Watch Dashboard v2
+# GPU Watch Dashboard v2.5
 
 一個輕量、無需代理程式的儀表板，專為實驗室共用的 GPU 伺服器而設。它會顯示哪些 GPU 現時空閒、忙碌的 GPU 由誰使用，以及磁碟尚餘多少空間。所有數據只透過普通 SSH 收集。
 
-**v2** · 2026-09-30 發佈 · GPT-6.1 Sol (max) · [發佈驗證](RELEASE_VALIDATION.md)
+**v2.5** · 2026-10-03 發佈 · GPT-6 Astra Ultra · [發佈驗證](RELEASE_VALIDATION.md)
 
 [English](README.md) | [简体中文](README.zh-CN.md) | **繁體中文** | [日本語](README.ja.md) | [한국어](README.ko.md)
 
@@ -21,15 +21,16 @@
 - **輕量。** 後端只使用 Python 標準函式庫及 SQLite。前端是毋須建置步驟的原生 HTML、CSS 及 JavaScript。
 - **審慎。** 不會猜測進程的擁有者，不會顯示完整指令行，亦不會把過時的讀數當作即時數據顯示。
 
-## v2 的改動
+## v2.5 的改動
 
-- **Intelligence Index 按排程更新。** 一個小型排程執行緒會按配額安排的時間執行更新，即使沒有人開啟頁面亦然。
-- **更嚴格的擁有者判定。** 無法讀取 `/proc/<pid>/status` 時，不會再因為 `/proc` 目錄屬 root 所有便認定進程屬於 root，而是交由經核實的 `ps` 查詢判斷。該查詢可讀取最長 64 個字元的用戶名稱，並把 `?` 或被截短的名稱（以 `+` 結尾）視為不明。只有擁有者是 root 時，才以容器名稱代替用戶名稱顯示。
-- **擁有者不明的進程仍會顯示，但不作歸屬。** 擁有者不明的已核實進程仍會列出。只有當該 GPU 上所有進程的擁有者都已確認時，GPU 時間才會計入用戶；否則該區間保持未歸屬。
-- **磁碟警告改用伺服器總計。** 警告徽章現在與 Disk 分頁的 Used 使用同一個總計數值，不再取最滿的那個檔案系統。徽章的提示文字會註明該數值為所有檔案系統的總計。
-- **密碼管理工具提示。** 密碼及 PIN 輸入欄附有讓常見密碼管理工具略過的提示。
-- **不再顯示發佈頁尾。** 發佈資訊只保留在 `VERSION`、套件中繼資料、文件及 GitHub Releases。
-- **介面細節調整。** 即使在 320px 闊的屏幕上，最長的主機名稱及 IP 亦能顯示在同一行。返回頂部按鈕不再遮蓋頁面底部的連結；在中等闊度下，狀態圖例及篩選按鈕會分成兩行顯示。
+- **發佈前核對 GPU 觀測值。** 必需的 VRAM 數據缺失或無效時，不會把 GPU 顯示為空閒，亦不會計入觀測時間。使用率及溫度屬選用項目，缺失時仍可保留有效的 VRAM 觀測。
+- **每小時記錄以目前的 GPU 清單為準。** 已停用 GPU 的過往 VRAM 數據不會再計入每小時的 Lab Pulse 圖表。
+- **加強 HTTP 及診斷資料的邊界。** 拒絕重複的 `Host` 標頭及不完整的 JSON 請求本文。維護 health 回應只顯示例外類型，不會顯示可能包含敏感資料的例外文字。
+- **舊請求不會干擾新草稿。** 延遲到達的告示或計時器儲存/刪除回應會更新已儲存的數據，同時保留新編輯視窗的草稿、焦點及處理中的按鈕狀態。計時器 PIN 亦會在對話框關閉前清除。
+- **明確限制 Windows 緊急副本的檔案權限。** 啟動時，會把執行期檔案上繼承或明確保留的廣泛 ACL 權限，替換為目前用戶、SYSTEM 及 Administrators 的權限，並使用實際通過核對的 SSH 金鑰。
+- **保留現有管理員 PIN。** `ensure` 會保留有效的舊雜湊，並在驗證成功後升級。已儲存的雜湊無效時，需要明確修復；啟動過程不會自行更換 PIN。
+
+現有介面、用語、收集範圍及輕量架構維持不變。[發佈驗證](RELEASE_VALIDATION.md) 記錄了測試範圍及其限制，並不代表對日後所有環境或故障的保證。
 
 ## 功能
 
@@ -61,7 +62,7 @@
 
 - 預設每 10 秒自動更新。更新時會保留已選的分頁、滾動位置及鍵盤焦點，頁面在背景時會放慢更新頻率。數據停止更新時會顯示提示橫幅。
 - 在表單以外的地方點擊不會關閉表單，關閉表單時會清除其中的密碼。
-- 支援闊度低至 320px 的屏幕，可完全以鍵盤操作，並依從系統的「減少動態效果」設定。文字對比度符合 WCAG AA 標準。
+- 已檢查的版面支援闊度低至 320px 的屏幕，並依從系統的「減少動態效果」設定。鍵盤導覽及文字對比度樣本已按相關 WCAG AA 標準檢查，但這並非完整的無障礙認證。
 
 ## 運作原理
 
@@ -274,7 +275,7 @@ sudo python3 -I disk-installer.py
 
 ```sh
 # 檢查運行中容器的健康狀態
-docker exec gpu-watch-dashboard python3 /app/scripts/check_local.py --health-only --expected-build-version 2
+docker exec gpu-watch-dashboard python3 /app/scripts/check_local.py --health-only --expected-build-version 2.5
 
 # 檢查 SQLite 完整性及彙總不變量
 python3 scripts/audit-data.py data/gpu_watch.sqlite3
@@ -288,8 +289,8 @@ sh scripts/restore-backup.sh /absolute/path/to/backup.sqlite3
 ## 開發與測試
 
 ```sh
-python3 -m unittest discover -s tests -v   # 270 項 Python 回歸測試及契約測試
-node tests/test_frontend.js                # 21 項前端檢查
+python3 -m unittest discover -s tests -v   # 284 項 Python 回歸測試及契約測試
+node tests/test_frontend.js                # 25 項前端檢查
 ```
 
 少數測試只適用於 Windows 或 POSIX，在其他平台上會略過。請在 Windows 或裝有 GNU coreutils 的 Linux 上執行完整測試；精簡的 Alpine 應用程式映像使用 BusyBox，無法執行 GNU `du` 相關的測試夾具。
@@ -312,7 +313,7 @@ node tests/test_frontend.js                # 21 項前端檢查
 
 ## 發佈資訊
 
-**v2** 為正式推出版本，於 2026-09-30 由 GPT-6.1 Sol (max) 發佈。儀表板不顯示發佈頁尾；發佈資訊保留在 `VERSION`、`gpu_watch/__init__.py`、本 README 及 GitHub Releases。
+**v2.5** 為正式推出版本，於 2026-10-03 由 GPT-6 Astra Ultra 發佈。儀表板不顯示發佈頁尾；發佈資訊保留在 `VERSION`、`gpu_watch/__init__.py`、本 README 及 GitHub Releases。
 
 [RELEASE_VALIDATION.md](RELEASE_VALIDATION.md) 列出本次發佈通過的檢查。它記錄的是此原始碼版本經測試的行為，並不保證在日後所有環境或故障下都成立。
 

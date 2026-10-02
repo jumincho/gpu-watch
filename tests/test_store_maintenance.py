@@ -338,6 +338,32 @@ class StoreMaintenanceTests(unittest.TestCase):
             del store
             gc.collect()
 
+    def test_hourly_pulse_cannot_inherit_vram_from_retired_gpu(self):
+        midnight = datetime(2026, 10, 2, tzinfo=server.KST).timestamp()
+        with tempfile.TemporaryDirectory() as folder:
+            store = server.Store(Path(folder) / "test.sqlite3")
+            with closing(store.connect()) as conn, conn:
+                for index, active, used in [(0, 1, 0), (1, 0, 8192)]:
+                    conn.execute(
+                        "insert into gpu_runtime(host,gpu_index,active,last_snapshot_json) values('test',?,?,?)",
+                        (index, active, json.dumps({"memory_total": 8192, "memory_used": used})),
+                    )
+                    store._record_capacity_interval(
+                        conn, "test", index, midnight, midnight + 3600,
+                        bool(used), used, 8192,
+                    )
+            config = {"hosts": [{"name": "test", "lab": "nll"}],
+                      "labs": [{"id": "nll"}], "insights_cache_seconds": 0}
+            lab = store.insights(config, midnight + 3600)["labs"][0]
+            self.assertEqual(lab["max_index"], 8.0)
+            self.assertEqual(lab["daily_index"], 0.0)
+            observed_hours = [row for row in lab["hourly"] if row["index"] is not None]
+            self.assertEqual(len(observed_hours), 1)
+            self.assertEqual(observed_hours[0]["index"], 0.0)
+            self.assertEqual(observed_hours[0]["observed_capacity_hours"], 8.0)
+            for field in ("open", "high", "low", "close"):
+                self.assertEqual(observed_hours[0][field], 0.0)
+
     def test_gpu_uuid_change_resets_recent_intervals_and_missing_gpu_is_inactive(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             store = server.Store(Path(temp_dir) / "gpu_watch.sqlite3")

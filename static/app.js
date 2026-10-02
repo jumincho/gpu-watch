@@ -96,6 +96,11 @@ let currentDeadlines = [];
 let deadlineRenderSignature = "";
 let pendingDeadlineEditId = null;
 let deadlineReturnId = null;
+// An earlier request may finish after Escape and a new editor is opened.
+// Refresh committed data, but never close, refocus or unlock the newer editor.
+let noticeDialogGeneration = 0;
+let noticeDeleteDialogGeneration = 0;
+let deadlineDialogGeneration = 0;
 
 const eventFilters = { date: "", host: "", user: "", includeAvailability: false };
 eventAvailabilityInput.checked = false;
@@ -711,6 +716,7 @@ function updateDeadlineMode() {
 }
 
 function openDeadlineDialog(id = null) {
+  deadlineDialogGeneration += 1;
   const deadline = currentDeadlines.find((item) => item.id === String(id)) || null;
   pendingDeadlineEditId = deadline?.id || null;
   deadlineReturnId = deadline?.id || null;
@@ -734,16 +740,20 @@ function openDeadlineDialog(id = null) {
 }
 
 function closeDeadlineDialog(restoreFocus = true) {
+  deadlineDialogGeneration += 1;
   const returnId = deadlineReturnId;
   pendingDeadlineEditId = null;
   deadlineReturnId = null;
+  deadlinePinInput.value = "";
   if (typeof deadlineDialog.close === "function") deadlineDialog.close();
   else deadlineDialog.removeAttribute("open");
   deadlineForm.reset();
   deadlineFormMessage.textContent = "";
   deadlineFormMessage.className = "form-message";
   if (restoreFocus) {
+    const closedGeneration = deadlineDialogGeneration;
     window.setTimeout(() => {
+      if (closedGeneration !== deadlineDialogGeneration || noticeDialog.open || noticeDeleteDialog.open) return;
       focusWithoutScroll(
         deadlineButtonFor(returnId)
         || (!deadlineAddButton.hidden ? deadlineAddButton : deadlineWidgets.querySelector("[data-deadline-edit]")),
@@ -754,6 +764,7 @@ function closeDeadlineDialog(restoreFocus = true) {
 
 async function submitDeadline(event) {
   event.preventDefault();
+  const generation = deadlineDialogGeneration;
   const tba = deadlineTbaInput.checked;
   const deadlineAt = tba ? null : kstInputToIso(deadlineAtInput.value);
   if (!tba && !deadlineAt) {
@@ -780,21 +791,29 @@ async function submitDeadline(event) {
       body: JSON.stringify(requestBody),
     });
     if (!response.ok) throw new Error(payload.error || `save ${response.status}`);
+    if (generation !== deadlineDialogGeneration) {
+      await load();
+      return;
+    }
     currentDeadlines = normalizedDeadlines(payload.deadlines);
-    deadlineReturnId = payload.deadline?.id || pendingDeadlineEditId;
     renderDeadlines(true);
+    deadlineReturnId = payload.deadline?.id || pendingDeadlineEditId;
     closeDeadlineDialog();
   } catch (error) {
+    if (generation !== deadlineDialogGeneration) return;
     deadlineFormMessage.textContent = String(error.message || error);
     deadlineFormMessage.classList.add("error");
   } finally {
-    deadlineSaveButton.disabled = false;
-    deadlineDeleteButton.disabled = false;
+    if (generation === deadlineDialogGeneration) {
+      deadlineSaveButton.disabled = false;
+      deadlineDeleteButton.disabled = false;
+    }
   }
 }
 
 async function deleteDeadline() {
   if (!pendingDeadlineEditId) return;
+  const generation = deadlineDialogGeneration;
   if (!/^\d{4}$/.test(deadlinePinInput.value)) {
     deadlineFormMessage.textContent = "관리자 PIN 숫자 4자리를 입력해 주세요.";
     deadlineFormMessage.className = "form-message error";
@@ -816,16 +835,23 @@ async function deleteDeadline() {
       },
     );
     if (!response.ok) throw new Error(payload.error || `delete ${response.status}`);
+    if (generation !== deadlineDialogGeneration) {
+      await load();
+      return;
+    }
     currentDeadlines = normalizedDeadlines(payload.deadlines);
-    deadlineReturnId = null;
     renderDeadlines(true);
+    deadlineReturnId = null;
     closeDeadlineDialog();
   } catch (error) {
+    if (generation !== deadlineDialogGeneration) return;
     deadlineFormMessage.textContent = String(error.message || error);
     deadlineFormMessage.classList.add("error");
   } finally {
-    deadlineSaveButton.disabled = false;
-    deadlineDeleteButton.disabled = false;
+    if (generation === deadlineDialogGeneration) {
+      deadlineSaveButton.disabled = false;
+      deadlineDeleteButton.disabled = false;
+    }
   }
 }
 
@@ -1137,6 +1163,7 @@ function renderAnnouncements(announcements = []) {
 }
 
 function openNoticeDialog(id = null) {
+  noticeDialogGeneration += 1;
   const notice = currentAnnouncements.find((item) => String(item.id) === String(id)) || null;
   pendingNoticeEditId = notice?.id || null;
   noticeForm.reset();
@@ -1163,6 +1190,7 @@ function openNoticeDialog(id = null) {
 }
 
 function closeNoticeDialog(restoreFocus = true) {
+  noticeDialogGeneration += 1;
   const editId = pendingNoticeEditId;
   pendingNoticeEditId = null;
   noticePinInput.value = "";
@@ -1180,6 +1208,7 @@ function closeNoticeDialog(restoreFocus = true) {
 
 async function submitAnnouncement(event) {
   event.preventDefault();
+  const generation = noticeDialogGeneration;
   noticeFormMessage.textContent = "";
   noticeFormMessage.className = "form-message";
   noticeSaveButton.disabled = true;
@@ -1201,18 +1230,27 @@ async function submitAnnouncement(event) {
     if (!res.ok || !data.ok) {
       throw new Error(data.error || "공지 저장에 실패했습니다.");
     }
+    if (generation !== noticeDialogGeneration) {
+      await load();
+      return;
+    }
     closeNoticeDialog(false);
+    const closedGeneration = noticeDialogGeneration;
     await load();
-    focusWithoutScroll(editId ? noticeActionButtonFor(editId, "edit") || noticeOpenButton : noticeOpenButton);
+    if (closedGeneration === noticeDialogGeneration && !noticeDeleteDialog.open && !deadlineDialog.open) {
+      focusWithoutScroll(editId ? noticeActionButtonFor(editId, "edit") || noticeOpenButton : noticeOpenButton);
+    }
   } catch (err) {
+    if (generation !== noticeDialogGeneration) return;
     noticeFormMessage.textContent = String(err.message || err);
     noticeFormMessage.classList.add("error");
   } finally {
-    noticeSaveButton.disabled = false;
+    if (generation === noticeDialogGeneration) noticeSaveButton.disabled = false;
   }
 }
 
 function openNoticeDeleteDialog(id) {
+  noticeDeleteDialogGeneration += 1;
   pendingNoticeDeleteId = id;
   noticeDeleteForm.reset();
   noticeDeleteMessage.textContent = "";
@@ -1224,6 +1262,7 @@ function openNoticeDeleteDialog(id) {
 }
 
 function closeNoticeDeleteDialog(restoreFocus = true) {
+  noticeDeleteDialogGeneration += 1;
   const deleteId = pendingNoticeDeleteId;
   pendingNoticeDeleteId = null;
   noticeDeletePinInput.value = "";
@@ -1237,6 +1276,7 @@ function closeNoticeDeleteDialog(restoreFocus = true) {
 async function deleteAnnouncement(event) {
   event.preventDefault();
   if (!pendingNoticeDeleteId) return;
+  const generation = noticeDeleteDialogGeneration;
   noticeDeleteSubmitButton.disabled = true;
   noticeDeleteMessage.textContent = "";
   try {
@@ -1248,15 +1288,23 @@ async function deleteAnnouncement(event) {
     if (!res.ok || !data.ok) {
       throw new Error(data.error || "공지 삭제에 실패했습니다.");
     }
-    closeNoticeDeleteDialog(false);
     invalidateEvents();
+    if (generation !== noticeDeleteDialogGeneration) {
+      await load();
+      return;
+    }
+    closeNoticeDeleteDialog(false);
+    const closedGeneration = noticeDeleteDialogGeneration;
     await load();
-    focusWithoutScroll(noticeOpenButton);
+    if (closedGeneration === noticeDeleteDialogGeneration && !noticeDialog.open && !deadlineDialog.open) {
+      focusWithoutScroll(noticeOpenButton);
+    }
   } catch (err) {
+    if (generation !== noticeDeleteDialogGeneration) return;
     noticeDeleteMessage.textContent = String(err.message || err);
     noticeDeleteMessage.classList.add("error");
   } finally {
-    noticeDeleteSubmitButton.disabled = false;
+    if (generation === noticeDeleteDialogGeneration) noticeDeleteSubmitButton.disabled = false;
   }
 }
 
@@ -2177,6 +2225,7 @@ noticeOpenButton.addEventListener("click", () => openNoticeDialog());
 noticeCancelButton.addEventListener("click", closeNoticeDialog);
 noticeForm.addEventListener("submit", submitAnnouncement);
 noticeDialog.addEventListener("close", () => {
+  if (noticeDialog.open) return;
   noticePinInput.value = "";
   pendingNoticeEditId = null;
 });
@@ -2196,13 +2245,16 @@ for (const input of [deadlineAtInput, noticeExpiresInput]) {
 
 deadlineDeleteButton.addEventListener("click", deleteDeadline);
 deadlineDialog.addEventListener("close", () => {
+  if (deadlineDialog.open) return;
   deadlinePinInput.value = "";
   pendingDeadlineEditId = null;
 });
 
 noticeDeleteCancelButton.addEventListener("click", closeNoticeDeleteDialog);
 noticeDeleteForm.addEventListener("submit", deleteAnnouncement);
-noticeDeleteDialog.addEventListener("close", () => { noticeDeletePinInput.value = ""; });
+noticeDeleteDialog.addEventListener("close", () => {
+  if (!noticeDeleteDialog.open) noticeDeletePinInput.value = "";
+});
 
 function updateScrollTopButton() {
   scrollTopButton.classList.toggle("visible", window.scrollY > 480);

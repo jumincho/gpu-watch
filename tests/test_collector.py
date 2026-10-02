@@ -548,9 +548,15 @@ class CollectorProbeTests(unittest.TestCase):
         finally:
             collector.stop()
 
+    def test_public_example_inventory_contract(self):
+        current = server.load_config()
+        expected = {'lab21': 2, 'lab22': 6, 'lab23': 8, 'lab24': 4, 'lab25': 1, 'lab26': 8, 'lab27': 8, 'lab28': 8, 'atlas': 4, 'boreas': 2, 'cygnus': 2, 'draco': 3, 'eridanus': 1, 'fornax': 2, 'grus': 4, 'hydrus': 2, 'indus': 4, 'lupus': 4, 'mensa': 4, 'norma': 1, 'octans': 2, 'pictor': 2}
+        self.assertEqual({host["name"]: host["expected_gpu_count"] for host in current["hosts"]}, expected)
+        self.assertEqual(len(current["hosts"]), 22)
+        self.assertEqual(sum(expected.values()), 82)
+
     def test_config_validation_rejects_fractional_and_unsafe_runtime_values(self):
         current = server.load_config()
-        self.assertEqual(sum(host["expected_gpu_count"] for host in current["hosts"]), 82)
         bad_workers = copy.deepcopy(current)
         bad_workers["collector_workers"] = 1.5
         with self.assertRaises(ValueError):

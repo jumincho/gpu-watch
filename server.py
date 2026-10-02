@@ -4344,11 +4344,16 @@ class Store:
                 dict(row)
                 for row in conn.execute(
                     """
-                    select host, gpu_index, start_ts, end_ts, busy
-                         , memory_used_mib, memory_total_mib
-                    from gpu_capacity_interval
-                    where end_ts>? and start_ts<?
-                    order by host, gpu_index, start_ts
+                    select capacity.host, capacity.gpu_index, capacity.start_ts,
+                           capacity.end_ts, capacity.busy,
+                           capacity.memory_used_mib, capacity.memory_total_mib
+                    from gpu_capacity_interval as capacity
+                    join gpu_runtime as runtime
+                      on runtime.host=capacity.host
+                     and runtime.gpu_index=capacity.gpu_index
+                     and runtime.active=1
+                    where capacity.end_ts>? and capacity.start_ts<?
+                    order by capacity.host, capacity.gpu_index, capacity.start_ts
                     """,
                     (window_start, now),
                 ).fetchall()
@@ -4939,6 +4944,14 @@ class Collector:
             gpu = sanitize_gpu_snapshot(raw_gpu)
             if gpu is None:
                 raise ValueError("invalid GPU payload")
+            # A valid inventory is not enough to prove a usable observation.
+            # Mirror the remote parser's mandatory memory telemetry at this
+            # trust boundary; unavailable values must never become a free GPU.
+            memory_used = gpu["memory_used"]
+            memory_total = gpu["memory_total"]
+            if (memory_used is None or memory_total is None or memory_total <= 0
+                    or memory_used > memory_total):
+                raise ValueError("invalid GPU memory telemetry")
             gpu_index = int(gpu["index"])
             if gpu_index in gpu_indices:
                 raise ValueError("duplicate GPU index")
@@ -5420,8 +5433,12 @@ class Handler(SimpleHTTPRequestHandler):
     def request_allowed(self) -> bool:
         address = self.client_ip()
         ip_allowed = is_ip_allowed(address, self.config["allowed_networks"])
-        host_allowed = is_host_allowed(
-            self.headers.get("Host"), self.config["allowed_hosts"]
+        # Conflicting authorities must not be interpreted differently by the
+        # reverse proxy and backend. Even identical duplicate Host fields are
+        # invalid HTTP requests and cannot pass the authority allowlist.
+        host_values = self.headers.get_all("Host") or []
+        host_allowed = len(host_values) == 1 and is_host_allowed(
+            host_values[0], self.config["allowed_hosts"]
         )
         if ip_allowed and host_allowed:
             return True
@@ -5558,6 +5575,8 @@ class Handler(SimpleHTTPRequestHandler):
         if length > max_bytes:
             raise ValueError("요청이 너무 큽니다.")
         raw = self.rfile.read(length)
+        if len(raw) != length:
+            raise ValueError("JSON 요청을 읽을 수 없습니다.")
         try:
             data = json.loads(raw.decode("utf-8"))
         except Exception as exc:

@@ -1,8 +1,8 @@
-# GPU Watch Dashboard v2
+# GPU Watch Dashboard v2.5
 
 一款轻量、无需代理的仪表盘，专为实验室共享的 GPU 服务器设计。它能显示哪些 GPU 当前空闲、忙碌的 GPU 由谁在用，以及磁盘还剩多少空间。所有数据仅通过普通 SSH 采集。
 
-**v2** · 2026-09-30 发布 · GPT-6.1 Sol (max) · [发布验证](RELEASE_VALIDATION.md)
+**v2.5** · 2026-10-03 发布 · GPT-6 Astra Ultra · [发布验证](RELEASE_VALIDATION.md)
 
 [English](README.md) | **简体中文** | [繁體中文](README.zh-HK.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
@@ -21,15 +21,16 @@
 - **轻量。** 后端只使用 Python 标准库和 SQLite。前端是无需构建步骤的原生 HTML、CSS 和 JavaScript。
 - **严谨。** 不猜测进程归属，不显示完整命令行，也不会把过时的读数当作实时数据展示。
 
-## v2 的变化
+## v2.5 的变化
 
-- **Intelligence Index 按计划刷新。** 一个小型调度线程会按配额安排的时间执行刷新，即使没有人打开页面也不例外。
-- **更严格的归属判定。** 无法读取 `/proc/<pid>/status` 时，不再因为 `/proc` 目录归 root 所有就认定进程属于 root，而是交由经过校验的 `ps` 查询判断。该查询可读取最长 64 个字符的用户名，并把 `?` 或被截断的名称（以 `+` 结尾）视为未知。只有所有者是 root 时，才用容器名代替用户名显示。
-- **所有者未知的进程仍会显示，但不归属。** 所有者未知的已验证进程仍会列出。只有当该 GPU 上所有进程的所有者都已知时，GPU 时间才会计入用户；否则该区间保持未归属。
-- **磁盘警告改用服务器合计。** 警告徽章现在与 Disk 标签页的 Used 使用同一个合计值，不再取最满的那个文件系统。徽章的提示文字会说明该值是全部文件系统的合计。
-- **密码管理器提示。** 密码和 PIN 输入框带有让常见密码管理器忽略的提示。
-- **不再显示发布页脚。** 发布信息只保留在 `VERSION`、包元数据、文档和 GitHub Releases 中。
-- **界面细节调整。** 即使在 320px 宽的屏幕上，最长的主机名和 IP 也能显示在一行内。返回顶部按钮不再遮挡页面底部的链接；在中等宽度下，状态图例和筛选按钮分成两行显示。
+- **发布前校验 GPU 观测值。** 必需的显存数据缺失或无效时，不会把 GPU 显示为空闲，也不会计入观测时间。利用率和温度属于可选项，缺失时仍可保留有效的显存观测。
+- **逐小时历史以当前 GPU 列表为准。** 已停用 GPU 的历史显存数据不会再计入逐小时的 Lab Pulse 图表。
+- **加强 HTTP 和诊断信息边界。** 拒绝重复的 `Host` 请求头和不完整的 JSON 请求体。维护 health 响应只显示异常类型，不会显示可能包含敏感信息的异常文本。
+- **旧请求不会干扰新草稿。** 延迟到达的公告或计时器保存/删除响应会刷新已保存的数据，同时保留新编辑窗口的草稿、焦点和正在处理的按钮状态。计时器 PIN 也会在对话框关闭前清除。
+- **明确限制 Windows 应急副本的文件权限。** 启动时，将运行时文件上继承或显式保留的宽泛 ACL 权限替换为当前用户、SYSTEM 和 Administrators 的权限，并使用实际通过校验的 SSH 密钥。
+- **保留现有管理员 PIN。** `ensure` 会保留有效的旧哈希，并在认证成功后升级。已存储的哈希无效时，需要显式修复；启动过程不会悄悄更换 PIN。
+
+现有界面、文案、采集范围和轻量架构保持不变。[发布验证](RELEASE_VALIDATION.md) 记录了测试范围及其限制，不代表对未来所有环境或故障的保证。
 
 ## 功能
 
@@ -61,7 +62,7 @@
 
 - 默认每 10 秒自动刷新。刷新时会保留所选标签页、滚动位置和键盘焦点，页面在后台时会放慢刷新频率。数据停止更新时会显示提示横幅。
 - 点击表单外部不会关闭表单，关闭表单时会清除其中的密码。
-- 支持宽度低至 320px 的屏幕，可完全使用键盘操作，并遵循系统的“减少动态效果”设置。文字对比度达到 WCAG AA 标准。
+- 已检查的布局支持宽度低至 320px 的屏幕，并遵循系统的“减少动态效果”设置。键盘导航和文字对比度样本已按相关 WCAG AA 标准检查，但这不等于完整的无障碍认证。
 
 ## 工作原理
 
@@ -274,7 +275,7 @@ sudo python3 -I disk-installer.py
 
 ```sh
 # 检查运行中容器的健康状态
-docker exec gpu-watch-dashboard python3 /app/scripts/check_local.py --health-only --expected-build-version 2
+docker exec gpu-watch-dashboard python3 /app/scripts/check_local.py --health-only --expected-build-version 2.5
 
 # 检查 SQLite 完整性和聚合不变量
 python3 scripts/audit-data.py data/gpu_watch.sqlite3
@@ -288,8 +289,8 @@ sh scripts/restore-backup.sh /absolute/path/to/backup.sqlite3
 ## 开发与测试
 
 ```sh
-python3 -m unittest discover -s tests -v   # 270 个 Python 回归测试与契约测试
-node tests/test_frontend.js                # 21 项前端检查
+python3 -m unittest discover -s tests -v   # 284 个 Python 回归测试与契约测试
+node tests/test_frontend.js                # 25 项前端检查
 ```
 
 少数测试只适用于 Windows 或 POSIX，在其他平台上会被跳过。请在 Windows 或装有 GNU coreutils 的 Linux 上运行完整测试；精简的 Alpine 应用镜像使用 BusyBox，无法运行 GNU `du` 相关的测试夹具。
@@ -312,7 +313,7 @@ node tests/test_frontend.js                # 21 项前端检查
 
 ## 发布信息
 
-**v2** 为正式发布版本，于 2026-09-30 由 GPT-6.1 Sol (max) 发布。仪表盘不显示发布页脚；发布信息保留在 `VERSION`、`gpu_watch/__init__.py`、本 README 和 GitHub Releases 中。
+**v2.5** 为正式发布版本，于 2026-10-03 由 GPT-6 Astra Ultra 发布。仪表盘不显示发布页脚；发布信息保留在 `VERSION`、`gpu_watch/__init__.py`、本 README 和 GitHub Releases 中。
 
 [RELEASE_VALIDATION.md](RELEASE_VALIDATION.md) 列出了本次发布通过的检查。它记录的是该源码版本经过测试的行为，并不保证在今后的所有环境或故障下都成立。
 

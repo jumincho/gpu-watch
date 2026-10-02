@@ -302,4 +302,7 @@ $env:GPU_WATCH_BUILD_VERSION = $ExpectedBuildVersion
 $env:GPU_WATCH_RUNTIME_MODE = "emergency"
 $env:GPU_WATCH_SSH_TARGET_PREFIX = "gpuwatch-local-"
 $env:GPU_WATCH_SSH_CONFIG_FILE = $LocalSshConfig
+# Use exactly the identity validated above and no external proxy on this direct listener.
+$env:GPU_WATCH_SSH_IDENTITY_FILE = $IdentityPath
+$env:GPU_WATCH_TRUSTED_PROXY_NETWORKS = "127.0.0.0/8,::1/128"
 & $Python $ServerScript --host 0.0.0.0 --port $Port

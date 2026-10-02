@@ -234,48 +234,60 @@ function Test-GpuWatchListener([int]$ProcessId) {
     }
 }
 
-function Protect-NlpPasswordFile {
-    $item = Get-Item -LiteralPath $SecretPath -Force -ErrorAction Stop
+function Protect-PrivatePathAcl([string]$Path, [switch]$Container) {
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return
+    }
+    $item = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
     if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
-        throw "Refusing a reparse-point NLP secret file."
+        throw "Refusing a reparse-point GPU Watch runtime path: $Path"
     }
-    $identityName = [Security.Principal.WindowsIdentity]::GetCurrent().Name
-    $icacls = Join-Path $env:SystemRoot "System32\icacls.exe"
-    & $icacls $SecretPath "/inheritance:r" "/grant:r" "${identityName}:(F)" "*S-1-5-18:(F)" | Out-Null
-    if ($LASTEXITCODE -ne 0) {
-        throw "Failed to restrict the NLP secret ACL."
+    # Build a new DACL so no copied explicit broad grant survives. Change
+    # access rules only; preserve the file owner and avoid SACL privileges.
+    $acl = if ($Container) {
+        [Security.AccessControl.DirectorySecurity]::new()
+    } else {
+        [Security.AccessControl.FileSecurity]::new()
     }
+    $acl.SetAccessRuleProtection($true, $false)
+    $identities = @(
+        [Security.Principal.WindowsIdentity]::GetCurrent().User,
+        [Security.Principal.SecurityIdentifier]::new("S-1-5-18"),
+        [Security.Principal.SecurityIdentifier]::new("S-1-5-32-544")
+    )
+    foreach ($identity in $identities) {
+        $rule = if ($Container) {
+            [Security.AccessControl.FileSystemAccessRule]::new(
+                $identity, [Security.AccessControl.FileSystemRights]::FullControl,
+                [Security.AccessControl.InheritanceFlags]::ContainerInherit -bor [Security.AccessControl.InheritanceFlags]::ObjectInherit,
+                [Security.AccessControl.PropagationFlags]::None,
+                [Security.AccessControl.AccessControlType]::Allow
+            )
+        } else {
+            [Security.AccessControl.FileSystemAccessRule]::new(
+                $identity, [Security.AccessControl.FileSystemRights]::FullControl,
+                [Security.AccessControl.AccessControlType]::Allow
+            )
+        }
+        $acl.AddAccessRule($rule)
+    }
+    if ($PSVersionTable.PSEdition -eq "Core") {
+        [IO.FileSystemAclExtensions]::SetAccessControl($item, $acl)
+    } else {
+        $item.SetAccessControl($acl)
+    }
+}
+
+function Protect-NlpPasswordFile {
+    Protect-PrivatePathAcl -Path $SecretPath
     attrib +H $SecretPath 2>$null
 }
 
 function Protect-LocalRuntimeDirectories {
-    $identityName = [Security.Principal.WindowsIdentity]::GetCurrent().Name
-    $icacls = Join-Path $env:SystemRoot "System32\icacls.exe"
-
-    function Protect-PathAcl([string]$Path, [switch]$Container) {
-        if (-not (Test-Path -LiteralPath $Path)) {
-            return
-        }
-        $item = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
-        if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
-            throw "Refusing a reparse-point GPU Watch runtime path: $Path"
-        }
-        $grants = if ($Container) {
-            @("${identityName}:(OI)(CI)(F)", "*S-1-5-18:(OI)(CI)(F)", "*S-1-5-32-544:(OI)(CI)(F)")
-        } else {
-            @("${identityName}:(F)", "*S-1-5-18:(F)", "*S-1-5-32-544:(F)")
-        }
-        & $icacls $Path "/inheritance:r" "/grant:r" @grants | Out-Null
-        if ($LASTEXITCODE -ne 0) {
-            throw "Failed to restrict the local GPU Watch runtime ACL: $Path"
-        }
-    }
-
     foreach ($path in @((Join-Path $Root "data"), (Join-Path $Root "secrets"))) {
-        if (-not (Test-Path -LiteralPath $path -PathType Container)) {
-            continue
+        if (Test-Path -LiteralPath $path -PathType Container) {
+            Protect-PrivatePathAcl -Path $path -Container
         }
-        Protect-PathAcl -Path $path -Container
     }
     foreach ($path in @(
         (Join-Path $Root "data\admin_pin.hash"),
@@ -286,7 +298,7 @@ function Protect-LocalRuntimeDirectories {
         (Join-Path $Root "secrets\artificial_analysis_api_key"),
         $SecretPath
     )) {
-        Protect-PathAcl -Path $path
+        Protect-PrivatePathAcl -Path $path
     }
 }
 

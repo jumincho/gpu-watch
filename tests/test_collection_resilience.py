@@ -325,5 +325,57 @@ class CollectionResilienceTests(unittest.TestCase):
         self.assertNotIn("test", self.collector.host_next_probe_at)
 
 
+    def test_unavailable_memory_cannot_publish_free_or_charge_unobserved_time(self):
+        self.apply(100)
+        self.apply(110)
+        for field, value in [
+            ("memory_used", None), ("memory_used", "N/A"),
+            ("memory_used", -1), ("memory_used", float("nan")),
+            ("memory_used", float("inf")), ("memory_used", True),
+            ("memory_total", None), ("memory_total", 0),
+            ("memory_total", -1), ("memory_total", float("inf")),
+            ("memory_total", False), ("memory_used", 8193),
+        ]:
+            with self.subTest(field=field, value=value):
+                payload = self.payload()
+                payload["gpus"][0].update(processes=[], utilization=0, memory_used=0)
+                payload["gpus"][0][field] = value
+                future = Future()
+                future.set_result(payload)
+                with mock.patch("server.now_ts", return_value=120), mock.patch("server.audit"):
+                    self.collector.consume_gpu_result(self.host, future)
+                with mock.patch("server.now_ts", return_value=120):
+                    host = self.store.snapshot(self.config)["hosts"][0]
+                self.assertFalse(host["online"])
+                self.assertEqual(host["usage"]["observed_seconds"], 10)
+                self.assertEqual(host["usage"]["busy_seconds"], 10)
+                self.assertIsNone(host["gpus"][0]["busy"])
+                self.assertFalse(any(event["event"] == "free_start"
+                                     for event in self.store.events()["events"]))
+        self.assertEqual(len(self.observation_events()), 1)
+
+    def test_missing_optional_gpu_metrics_preserve_valid_memory_observation(self):
+        payload = self.payload()
+        payload["gpus"][0].update(processes=[], memory_used=0, utilization=None, temperature=None)
+        self.apply(100, payload)
+        with mock.patch("server.now_ts", return_value=100):
+            host = self.store.snapshot(self.config)["hosts"][0]
+        self.assertTrue(host["online"])
+        self.assertFalse(host["gpus"][0]["busy"])
+        self.assertIsNone(host["gpus"][0]["utilization"])
+
+    def test_zero_utilization_resident_retains_occupancy_and_known_owner(self):
+        payload = self.payload()
+        payload["gpus"][0]["utilization"] = 0
+        for ts in range(100, 171, 10):
+            self.apply(ts, payload)
+        with mock.patch("server.now_ts", return_value=170):
+            host = self.store.snapshot(self.config)["hosts"][0]
+        self.assertTrue(host["gpus"][0]["busy"])
+        self.assertEqual(host["recent_usage"]["meaningful_active_seconds"], 70)
+        self.assertEqual(host["usage"]["top_users"][0]["user"], "alice")
+        self.assertEqual(host["usage"]["busy_seconds"], 70)
+
+
 if __name__ == "__main__":
     unittest.main()

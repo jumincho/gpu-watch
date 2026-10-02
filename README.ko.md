@@ -1,8 +1,8 @@
-# GPU Watch Dashboard v2
+# GPU Watch Dashboard v2.5
 
 연구실이 함께 쓰는 GPU 서버를 위한 가볍고 에이전트가 필요 없는 대시보드입니다. 지금 비어 있는 GPU, 사용 중인 GPU의 사용자, 남은 디스크 용량을 보여 줍니다. 데이터는 일반 SSH로만 수집합니다.
 
-**v2** · 2026-09-30 릴리스 · GPT-6.1 Sol (max) · [릴리스 검증](RELEASE_VALIDATION.md)
+**v2.5** · 2026-10-03 릴리스 · GPT-6 Astra Ultra · [릴리스 검증](RELEASE_VALIDATION.md)
 
 [English](README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-HK.md) | [日本語](README.ja.md) | **한국어**
 
@@ -21,15 +21,16 @@
 - **가볍습니다.** 백엔드는 Python 표준 라이브러리와 SQLite만 사용합니다. 프런트엔드는 빌드 단계가 없는 순수 HTML, CSS, JavaScript입니다.
 - **신중합니다.** 프로세스 소유자를 추측하지 않고, 전체 명령행을 보여 주지 않습니다. 오래된 측정값을 현재 값처럼 표시하지 않습니다.
 
-## v2에서 달라진 점
+## v2.5에서 달라진 점
 
-- **Intelligence Index 예약 갱신.** 작은 예약 스레드가 호출 한도에 맞춰 잡은 갱신 시각을, 페이지를 연 사람이 없어도 지킵니다.
-- **더 엄격한 소유자 확인.** `/proc/<pid>/status`를 읽지 못하면 `/proc` 디렉터리가 root 소유라는 이유만으로 root 프로세스로 보지 않고, 검증된 `ps` 조회로 판단합니다. 이 조회는 64자까지의 사용자 이름을 읽고, `?`나 잘린 이름(`+`로 끝남)은 알 수 없음으로 둡니다. 컨테이너 이름은 소유자가 root일 때만 사용자 이름 대신 표시합니다.
-- **소유자를 모르는 프로세스도 보여 주되 귀속하지 않습니다.** 소유자를 확인하지 못한 검증된 프로세스도 목록에 남습니다. 그 GPU의 모든 소유자를 알 때만 GPU 시간을 사용자에게 나누고, 그렇지 않으면 그 구간은 미귀속으로 둡니다.
-- **디스크 경고는 서버 전체 합계로 판정합니다.** 경고 배지가 가장 꽉 찬 파일시스템 대신 Disk 탭의 Used와 같은 합산 값을 씁니다. 배지 툴팁에 모든 파일시스템의 합계라는 설명이 붙습니다.
-- **비밀번호 관리자 힌트.** 비밀번호와 PIN 입력칸에 주요 비밀번호 관리자가 무시하도록 하는 힌트를 붙였습니다.
-- **릴리스 푸터 제거.** 릴리스 정보는 `VERSION`, 패키지 메타데이터, 문서, GitHub Releases에만 둡니다.
-- **화면 다듬기.** 폭 320px 화면에서도 가장 긴 호스트 이름과 IP가 한 줄에 들어갑니다. 맨 위로 버튼이 페이지 끝의 링크를 가리지 않고, 중간 폭 화면에서는 상태 범례와 필터 버튼을 두 줄로 나눕니다.
+- **GPU 관측값을 게시 전에 검증합니다.** 필수 VRAM 값이 없거나 잘못되면 GPU를 free로 표시하거나 관측 시간에 포함하지 않습니다. 선택 항목인 Util·온도 값은 없어도 유효한 VRAM 관측을 유지합니다.
+- **시간별 이력이 현재 GPU 목록을 따릅니다.** 비활성화된 GPU의 과거 VRAM 값이 시간별 Lab Pulse 차트에 합산되지 않도록 수정했습니다.
+- **HTTP와 진단 정보의 경계를 강화했습니다.** 중복 `Host` 헤더와 잘린 JSON 요청 본문을 거부합니다. 유지보수 health 응답에는 민감한 내용이 포함될 수 있는 예외 메시지 대신 예외 종류만 표시합니다.
+- **이전 요청이 새 초안을 건드리지 않습니다.** 늦게 도착한 공지·타이머 저장/삭제 응답은 실제 저장된 데이터를 갱신하면서 새 편집기의 초안·포커스·진행 중 버튼 상태를 보존합니다. 타이머 PIN도 창을 닫기 전에 지웁니다.
+- **Windows 비상 사본의 파일 권한을 명확히 제한합니다.** 시작 시 런타임 파일에 상속되거나 명시적으로 남아 있는 넓은 ACL 권한을 현재 사용자·SYSTEM·Administrators 권한으로 교체하고, 실제로 검증한 SSH 키를 사용합니다.
+- **기존 관리자 PIN을 보존합니다.** `ensure`는 유효한 구형 해시를 유지하고 인증 성공 후 갱신합니다. 저장된 해시가 잘못된 경우에는 명시적인 복구가 필요하며, 시작 과정에서 PIN을 몰래 바꾸지 않습니다.
+
+기존 화면·문구·수집 범위와 가벼운 구조를 유지합니다. [릴리스 검증](RELEASE_VALIDATION.md)은 확인한 범위와 한계를 기록하며, 향후 모든 환경이나 장애에 대한 보증은 아닙니다.
 
 ## 기능
 
@@ -61,7 +62,7 @@
 
 - 기본 10초마다 자동으로 새로 고칩니다. 선택한 탭, 스크롤 위치, 키보드 포커스를 유지하고, 백그라운드 탭에서는 주기를 늦춥니다. 데이터 갱신이 멈추면 배너로 알립니다.
 - 입력 창 바깥을 클릭해도 창이 닫히지 않고, 창을 닫으면 입력한 비밀번호를 지웁니다.
-- 폭 320px 화면까지 지원하고, 키보드만으로 모두 조작할 수 있으며, 모션 줄이기 설정을 따릅니다. 글자 대비는 WCAG AA 기준을 충족합니다.
+- 검토한 레이아웃은 폭 320px까지 동작하고 모션 줄이기 설정을 따릅니다. 키보드 탐색과 표본 글자 대비를 관련 WCAG AA 기준으로 확인했으며, 전체 접근성 인증을 의미하지는 않습니다.
 
 ## 동작 방식
 
@@ -274,7 +275,7 @@ sudo python3 -I disk-installer.py
 
 ```sh
 # 실행 중인 컨테이너 상태 확인
-docker exec gpu-watch-dashboard python3 /app/scripts/check_local.py --health-only --expected-build-version 2
+docker exec gpu-watch-dashboard python3 /app/scripts/check_local.py --health-only --expected-build-version 2.5
 
 # SQLite 무결성과 집계 불변식 검사
 python3 scripts/audit-data.py data/gpu_watch.sqlite3
@@ -288,8 +289,8 @@ sh scripts/restore-backup.sh /absolute/path/to/backup.sqlite3
 ## 개발과 테스트
 
 ```sh
-python3 -m unittest discover -s tests -v   # Python 회귀·계약 테스트 270개
-node tests/test_frontend.js                # 프런트엔드 검사 21개
+python3 -m unittest discover -s tests -v   # Python 회귀·계약 테스트 284개
+node tests/test_frontend.js                # 프런트엔드 검사 25개
 ```
 
 일부 테스트는 Windows나 POSIX 전용이라 다른 환경에서는 건너뜁니다. 전체 테스트는 Windows나 GNU coreutils가 있는 Linux에서 실행하세요. 최소 구성의 Alpine 앱 이미지는 BusyBox를 쓰므로 GNU `du` 테스트 fixture를 실행할 수 없습니다.
@@ -312,7 +313,7 @@ node tests/test_frontend.js                # 프런트엔드 검사 21개
 
 ## 릴리스
 
-**v2**는 정식 출범 버전으로, 2026-09-30에 GPT-6.1 Sol (max)가 릴리스했습니다. 대시보드에는 릴리스 푸터를 표시하지 않으며, 릴리스 정보는 `VERSION`, `gpu_watch/__init__.py`, 이 README, GitHub Releases에 있습니다.
+**v2.5**는 정식 출범 버전으로, 2026-10-03에 GPT-6 Astra Ultra가 릴리스했습니다. 대시보드에는 릴리스 푸터를 표시하지 않으며, 릴리스 정보는 `VERSION`, `gpu_watch/__init__.py`, 이 README, GitHub Releases에 있습니다.
 
 [RELEASE_VALIDATION.md](RELEASE_VALIDATION.md)에는 이번 릴리스가 통과한 검증이 정리되어 있습니다. 이 소스 버전에서 확인한 동작의 기록이며, 앞으로의 모든 환경이나 장애에 대한 보증은 아닙니다.
 

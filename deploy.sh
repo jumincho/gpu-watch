@@ -867,7 +867,8 @@ if ! wait_caddy_healthy "$BUILD_VERSION"; then
     exit 1
 fi
 if [ "$ALLOW_LOW_DISK_DEPLOY" -eq 1 ]; then
-    check_low_disk_only "$CONTAINER" "$BUILD_VERSION"
+    check_container_health "$CONTAINER" "$BUILD_VERSION" || \
+        check_low_disk_only "$CONTAINER" "$BUILD_VERSION"
 else
     check_container_health "$CONTAINER" "$BUILD_VERSION"
 fi

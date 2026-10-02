@@ -1,35 +1,31 @@
-# GPU Watch v2 release validation
+# GPU Watch v2.5 release validation
 
-2026-09-30 · GPT-6.1 Sol (max).
+2026-10-03 · GPT-6 Astra Ultra.
 
-The v2 application and its operational helpers passed the checks below. This is evidence for the reviewed release, not a guarantee against every future environment, hardware failure, or browser policy. The public repository contains a fictional inventory and example deployment settings; adapt and validate those settings before deployment.
+**PASS within the reviewed source, regression, and live-check scope.** This does not guarantee every future environment, device failure, shared-account identity, or browser policy. The public repository uses a fictional inventory and example deployment settings. Validate your own settings before deployment.
 
 | Check | Result |
 |---|---|
-| Python suite, private and public source on Linux | 270 tests each; OK, 2 Windows-specific tests skipped |
-| Python suite, private and public source on Windows | 270 tests each; OK, 15 POSIX/shell-specific tests skipped |
-| Frontend behavioral regressions | 21 checks; OK on Node on Linux and Windows |
-| Shell and PowerShell syntax | Shell scripts parsed; PowerShell parser reported no errors |
-| Interval calculations | Independent SQLite audit: no interval/daily-index failures, quick_check OK, no foreign-key violations |
-| Remote compatibility | Both probes parse as Python 3.6; exercised on older remote Python installations |
-| Process privacy and ownership | PID-generation/GPU revalidation; unknown-owner occupancy retained; partial cohorts not over-attributed; raw argv/secrets absent |
-| Responsive layout | 320, 390, 768, 1440 CSS px; no page overflow or clipped hostname/IP lines |
-| Accessibility spot checks | Rendered text contrast met small-text 4.5:1 / large-text 3:1 thresholds; keyboard focus visible; not a complete WCAG certification |
-| Forms and state | Notice/timer/delete dialogs retain drafts on outside click, TBA/flags/date limits work, tab/scroll/focus survives refresh |
-| Production/emergency parity | Version and source fingerprint agree; emergency LAN Start/Stop/firewall/secret cleanup exercised; emergency copy OFF afterward |
-| Published image scan | Trivy 0.74.0 with 2026-09-30 vulnerability DB; application: no findings; edge: one explained UNKNOWN-severity module advisory |
-| Secret boundary | Actual API key/password byte values absent from managed source and reachable Git history; public inventory/settings sanitized |
+| Python, private and public source on Linux | 284 tests each; OK, 3 Windows-specific skips |
+| Python, private and public source on Windows | 284 tests each; OK, 16 POSIX-specific skips |
+| Frontend behavioral regressions | 25 checks, including 16 deferred-response success/failure scenarios |
+| Shell and PowerShell | Shell syntax passed; PowerShell parser errors 0; restricted DACL behavior checked on Windows PowerShell 5.1 and PowerShell 7 |
+| Calculations and data | Independent interval/daily-index oracle matched; SQLite quick_check OK, no foreign-key violations; production notice and timer hashes unchanged |
+| Process ownership and privacy | GPU/PID-generation/UID validation, partial-cohort non-attribution, limited executable/script summary, no full argv/environment exposure |
+| Responsive and interaction checks | 320–1440 CSS px samples, keyboard/drafts/tab/scroll/focus; 12 snapshot refreshes retained mobile Disk scroll |
+| Text contrast samples | 1,242 solid-background samples met 4.5:1, minimum 5.20; not a complete WCAG certification |
+| Production/emergency parity | Matching v2.5 and complete application fingerprint; real Windows emergency Start/Stop/UAC/firewall/temporary-secret cleanup passed, emergency copy OFF afterward |
+| Images | Trivy 0.75.0, vulnerability DB updated 2026-10-02 12:48 UTC; application 0 findings, edge 1 non-applicable module advisory described below |
+| Source boundaries | Actual key/password values absent from managed source and reachable Git history; public inventory/settings/history checked for private identifiers |
 
-The edge scanner reports [GO-2026-5932](https://vuln.go.dev/ID/GO-2026-5932.json) for `golang.org/x/crypto v0.56.0`. The advisory concerns the `openpgp` packages. The build rejects these packages, and the exact compiled package graph shipped in `/usr/local/share/gpu-watch/caddy-packages.txt` contains none of them. This finding is recorded as non-applicable to the built edge binary rather than hidden or described as a zero-finding scan.
+The edge scan reports [GO-2026-5932](https://pkg.go.dev/vuln/GO-2026-5932) for the `golang.org/x/crypto v0.56.0` module. All seven affected `openpgp` package paths are absent from the exact compiled dependency graph saved in the final image. The Docker build also rejects openpgp dependencies. The original finding is retained as non-applicable to the shipped binary, not described as a zero-finding edge scan.
 
-Linux integration tests require GNU `du`; running them inside the minimal Alpine/BusyBox runtime is not an equivalent development environment. The deployment health checks are exercised in the actual application image.
+Actual browser checks covered the retained interface before final deployment. The post-deployment browser provider was unavailable, so final delivery was checked through real HTTP APIs/assets and an exact match of the served JavaScript hash. New asynchronous draft protection was verified through behavioral regression scenarios. No real production notice or timer was saved or deleted for a test.
 
-The system treats utilization-zero resident processes as occupancy. User time is shared equally between distinct confirmed owners only when the complete process cohort is attributable. A process that disappears between observations cannot always be assigned safely; such time remains unassigned rather than invented. AA refresh timing follows its response quota/reset and Retry-After, and the displayed index version is the numeric version actually returned by its API.
+Linux integration tests require GNU `du`; the Alpine/BusyBox application runtime is not an equivalent development test environment. Real deployment health gates were exercised in the application image. Public source was tested with its own fictional inventory rather than replacing it with private configuration.
 
-Live checks used the established trusted-LAN HTTP boundary and did not publish production inventory, credentials, database files, or production screenshots to this repository. The README screenshot uses fictional demo servers, users, and documentation-range IP addresses. Unreachable servers and GPU device faults remain external operational conditions. No automatic offsite backup or extra GPU metrics were added.
+Utilization-zero resident processes count as occupancy/reservation, not compute throughput. GPU time is shared equally between distinct confirmed owners only when the complete cohort is attributable. A process that exits between polls cannot always be assigned safely; unresolved intervals remain unassigned. API quota headers and Retry-After control AA refresh timing, and its displayed version is the numeric API value rather than an inferred methodology patch version.
 
-The same-day maintenance changes on `main` add bottom clearance for the back-to-top button and separate the legend and filters at medium widths. Both lab views were checked at 320, 390, 760, 761, 768, 1100, 1299, 1300, and 1440 CSS px: no horizontal page overflow, clipped hostname/IP, or wrapped normal seen line; timer countdowns remain centered. AA link bounds remain clear of the fixed button, with actual bottom-scroll checks at 320, 761, and 1440 px. Release contracts passed 15 tests on both Windows editions and the Linux operating source; frontend regressions passed 21 checks on both Windows editions and Linux. Rebuilt images were scanned against the newer 2026-09-30 vulnerability database, with no application findings and the same explained edge advisory. Production notices and timer settings were preserved, and the emergency copy remains OFF with matching version and source fingerprint.
+Short post-deployment resource samples were approximately 46–50 MiB for the application and 17–18 MiB for the edge, excluding a transient startup sample. These are measurements, not peak-load guarantees. No extra GPU metrics, frontend framework, resident GPU-server agent, or automated offsite backup was introduced.
 
-The annotated `v2` tag points to [`9ad9d18`](https://github.com/jumincho/gpu-watch/commit/9ad9d188ab83c0f52a00d3d1e3fb4bf083d02fab), which has exactly the original release tree with a corrected noreply author identity. The subsequent CSS, demo screenshot, and README updates are on `main`. The tag also uses the noreply identity; the original release date and implementation credit are preserved.
-
-The 2026-10-01 badge palette maintenance on `main` lets an app-serving tag share the physical-AI badge colors while retaining its own label and neutral tooltip. Frontend regressions passed 21 checks and release contracts passed 15 tests in both Windows editions; the Linux operating source passed 15 release contracts. Live browser computed styles confirmed identical text, background, border and alpha values. Configured server order, notices, timers and the OFF emergency copy were preserved. These are scoped maintenance checks; the full 270-test suite and image scan above retain their original verification dates. The formal v2 tag, release date and implementation credit remain unchanged.
+Private fleet failures, limited user-directory permissions, the trusted-LAN HTTP boundary, and browser password-manager policies remain documented operational limits. Production addresses, credentials, database files, and screenshots are excluded from this repository. README screenshots retain fictional demo servers and documentation-range addresses.

@@ -16,6 +16,7 @@ const context = vm.createContext({
   storageWarningFor:()=>null,tabFor:()=>"gpu",renderOwnerBadge:()=>"",
   renderDriveLine:()=>"",renderUsageMetrics:()=>"",renderHostBody:()=>"",
   noticePinInput:{value:""},noticeDeletePinInput:{value:""},
+  noticeDialogGeneration:0,noticeDeleteDialogGeneration:0,deadlineDialogGeneration:0,
   eventFilters:{date:"",host:"",user:"",includeAvailability:true},
   eventLimit:50,eventOffset:0,URLSearchParams,
   URL,Intl,Date,expandedProcessGroups:new Set(),
@@ -27,7 +28,7 @@ const names = ["clamp","pct","esc","limitDateTimeYear","formatKstInput","kstInpu
   "shortTime","intelligenceModelDisplayName","regionalFlagCode","deadlineTitleHtml",
   "eventsQueryString","publicActivityEvents","renderEvents","splitDiskErrors","renderDiskWarnings",
   "domIdPart","activityStateMeta","focusWithoutScroll","renderHosts",
-  "closeNoticeDialog","closeNoticeDeleteDialog","isCapacityFilesystem","storageTotals","storageUsedPercent","storageWarningFor","renderDiskTab","bytes","reservedBytes"];
+  "closeNoticeDialog","closeNoticeDeleteDialog","closeDeadlineDialog","isCapacityFilesystem","storageTotals","storageUsedPercent","storageWarningFor","renderDiskTab","bytes","reservedBytes"];
 for (const name of names) {
   const match = source.match(new RegExp("^(?:async )?function "+name+"\\([^]*?^}","m"));
   assert.ok(match, name);
@@ -220,6 +221,15 @@ check("closing a dialog clears its secret synchronously before native close disp
  context.pendingNoticeDeleteId=1;
  context.closeNoticeDeleteDialog(false);
  assert.equal(context.pendingNoticeDeleteId,null);
+ context.deadlinePinInput={value:"0000"};
+ context.deadlineDialog={close:()=>assert.equal(context.deadlinePinInput.value,"")};
+ context.deadlineForm={reset:()=>{}};
+ context.deadlineFormMessage={textContent:"",className:""};
+ context.deadlineReturnId="timer-a";
+ context.pendingDeadlineEditId="timer-a";
+ context.closeDeadlineDialog(false);
+ assert.equal(context.pendingDeadlineEditId,null);
+ assert.equal(context.deadlineReturnId,null);
 });
 
 check("disk warning and filter use server-wide capacity, not the fullest mount",()=>{
@@ -286,4 +296,70 @@ check("system mount boundaries agree with the collector",()=>{
  for(const mount of ["/boot","/boot/efi","/sys","/proc","/run","/dev","/snap/core","/var/lib/docker/overlay2/x"])
   assert.equal(context.isCapacityFilesystem({type:"ext4",mount,total_bytes:100}),false,mount);
 });
-console.log(JSON.stringify({ok:true,checks}));
+async function mutationRaceChecks() {
+ const mutations = [
+  ["submitDeadline", "deadlineDialogGeneration", "deadlineFormMessage", "deadlineSaveButton"],
+  ["deleteDeadline", "deadlineDialogGeneration", "deadlineFormMessage", "deadlineDeleteButton"],
+  ["submitAnnouncement", "noticeDialogGeneration", "noticeFormMessage", "noticeSaveButton"],
+  ["deleteAnnouncement", "noticeDeleteDialogGeneration", "noticeDeleteMessage", "noticeDeleteSubmitButton"],
+ ];
+ for (const [name,generation,message,button] of mutations) {
+  for (const stale of [false,true]) {
+   for (const success of [false,true]) {
+    let resolveRequest;
+    const request = new Promise(resolve=>{resolveRequest=resolve;});
+    const calls={close:0,load:0,render:0,focus:0};
+    const field=()=>({value:"audit-only",checked:false,disabled:false,textContent:"",className:"",classList:{add(){}},focus(){}});
+    const sandbox={
+     [generation]:1,fetchJsonWithTimeout:()=>request,
+     pendingDeadlineEditId:"old-timer",pendingNoticeEditId:1,pendingNoticeDeleteId:1,
+     kstInputToIso:()=>"2027-01-01T00:00:00Z",normalizedDeadlines:value=>value,
+     renderDeadlines:()=>{calls.render++;},load:async()=>{calls.load++;},
+     invalidateEvents:()=>{},focusWithoutScroll:()=>{calls.focus++;},noticeActionButtonFor:()=>null,
+     noticeDialog:{open:false},noticeDeleteDialog:{open:false},deadlineDialog:{open:false},
+    };
+    for (const key of ["deadlineTbaInput","deadlineAtInput","deadlineTitleInput","deadlineTbaTextInput","deadlineUrlInput","deadlinePinInput","deadlineFormMessage","deadlineSaveButton","deadlineDeleteButton","noticeFormMessage","noticeSaveButton","noticeAuthorInput","noticeMessageInput","noticeExpiresInput","noticePinInput","noticeDeleteSubmitButton","noticeDeleteMessage","noticeDeletePinInput","noticeOpenButton"]) sandbox[key]=field();
+    sandbox.deadlinePinInput.value="0000";
+    for(const close of ["closeDeadlineDialog","closeNoticeDialog","closeNoticeDeleteDialog"]) sandbox[close]=()=>{calls.close++;sandbox[generation]++;};
+    const isolated=vm.createContext(sandbox);
+    const match=source.match(new RegExp("^async function "+name+"\\([^]*?^}","m"));
+    assert.ok(match,name);
+    vm.runInContext(match[0],isolated);
+    const pending=isolated[name]({preventDefault(){}});
+    assert.equal(isolated[button].disabled,true,name+" disables its pending action");
+    if(stale) {
+     isolated[generation]++;
+     isolated[message].textContent="new draft";
+     isolated.deadlinePinInput.value="7777";
+     // Model a newer editor with its own request pending. The old response
+     // must not unlock its buttons or change its draft, secret or focus.
+    }
+    resolveRequest({response:{ok:success,status:success?200:403},payload:{ok:success,error:"old request failed",deadline:{id:"old-timer"},deadlines:[]}});
+    await pending;
+    if(stale) {
+     assert.equal(calls.close,0,name+" leaves the newer editor open");
+     assert.equal(calls.focus,0,name+" leaves the newer editor focused");
+     assert.equal(calls.render,0,name+" never reapplies an older timer list");
+     assert.equal(calls.load,success?1:0,name+" refreshes successfully committed data");
+     assert.equal(isolated[message].textContent,"new draft",name+" preserves the newer draft");
+     assert.equal(isolated.deadlinePinInput.value,"7777",name+" preserves the newer editor secret");
+     assert.equal(isolated[button].disabled,true,name+" never unlocks a newer pending request");
+    } else if(success) {
+     assert.equal(calls.close,1,name+" closes its own successful editor");
+     assert.equal(calls.load,name.includes("Announcement")?1:0);
+     assert.equal(calls.render,name.includes("Deadline")?1:0);
+    } else {
+     assert.equal(calls.close,0);
+     assert.equal(isolated[button].disabled,false,name+" allows retry after its own failure");
+     assert.equal(isolated[message].textContent,"old request failed");
+    }
+   }
+  }
+  checks++;
+  console.log("PASS "+name+" isolates stale success/failure from a reopened editor");
+ }
+}
+mutationRaceChecks().then(()=>console.log(JSON.stringify({ok:true,checks}))).catch(error=>{
+ console.error(error);
+ process.exitCode=1;
+});

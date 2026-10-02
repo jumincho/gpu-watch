@@ -1,8 +1,8 @@
-# GPU Watch Dashboard v2
+# GPU Watch Dashboard v2.5
 
 A lightweight, agentless dashboard for the GPU servers a research lab shares. It shows which GPUs are free right now, who is using the busy ones, and how much disk space is left. Data is collected over plain SSH.
 
-**v2** · released 2026-09-30 · GPT-6.1 Sol (max) · [release validation](RELEASE_VALIDATION.md)
+**v2.5** · released 2026-10-03 · GPT-6 Astra Ultra · [release validation](RELEASE_VALIDATION.md)
 
 **English** | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-HK.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
@@ -21,15 +21,16 @@ Before starting a job on a shared server, people usually need three answers: whi
 - **Light.** The backend uses only the Python standard library and SQLite. The frontend is plain HTML, CSS, and JavaScript with no build step.
 - **Careful.** It never guesses who owns a process and never shows full command lines. Stale readings are never presented as live.
 
-## What's new in v2
+## What's new in v2.5
 
-- **Scheduled Intelligence Index refreshes.** A small scheduler thread keeps the quota-based refresh appointments even when nobody has the page open.
-- **Stricter owner checks.** If `/proc/<pid>/status` cannot be read, a root-owned `/proc` directory no longer counts as root ownership; a verified `ps` lookup decides instead. That lookup reads user names up to 64 characters and treats `?` or truncated names (ending in `+`) as unknown. A container name stands in for the user only when the owner is root.
-- **Unknown owners stay visible and unassigned.** A verified process whose owner is unknown is still listed. Its GPU time is charged to users only when every owner on that GPU is known; otherwise the interval stays unassigned.
-- **Disk warnings use the server total.** The warning badge now uses the same combined figure as the Disk tab's Used column instead of the fullest filesystem. Its tooltip says the figure covers all filesystems.
-- **Password-manager hints.** Passphrase and PIN fields carry ignore hints for common password managers.
-- **No release footer.** Release details live in `VERSION`, the package metadata, the documentation, and GitHub releases.
-- **Interface polish.** The longest hostname and IP fit on one line even at 320 px. The back-to-top button no longer covers the last links on the page, and at medium widths the status legend and filter chips sit on separate rows.
+- **GPU readings are validated before publication.** Missing or invalid mandatory VRAM readings cannot make a GPU appear free or count as observed time. Optional utilization and temperature readings may still be unavailable.
+- **Hourly history follows the active GPU inventory.** Retired GPUs no longer contribute old VRAM readings to the hourly Lab Pulse chart.
+- **HTTP and diagnostic boundaries are stricter.** Duplicate `Host` headers and truncated JSON request bodies are rejected. Maintenance health reports expose the exception type instead of potentially sensitive exception text.
+- **New drafts survive older requests.** A delayed notice or timer save/delete response refreshes committed data without closing, overwriting, refocusing, or unlocking a newer editor. Timer PINs are cleared before the dialog closes.
+- **Windows emergency files have explicit private permissions.** Startup replaces broad inherited or explicit runtime ACL grants with access for the current user, SYSTEM, and Administrators, and uses the SSH identity that was actually validated.
+- **Existing administrator PINs are preserved.** `ensure` retains a valid older hash and upgrades it after successful authentication. An invalid stored hash requires an explicit repair; startup does not silently replace the PIN.
+
+The existing interface, wording, collection scope, and lightweight architecture are retained. [Release validation](RELEASE_VALIDATION.md) records the tested scope and its limits; it is not a guarantee against every future environment or failure.
 
 ## Features
 
@@ -61,7 +62,7 @@ Before starting a job on a shared server, people usually need three answers: whi
 
 - Automatic refresh every 10 seconds by default. Refreshing keeps the selected tabs, scroll position, and keyboard focus, and it slows down in background tabs. A banner appears when data stops updating.
 - Forms stay open when you click outside them, and closing a form clears its password.
-- Works on screens as narrow as 320 px, supports full keyboard use, and respects reduced-motion settings. Text contrast meets the WCAG AA thresholds.
+- Reviewed layouts work down to 320 px and respect reduced-motion settings. Keyboard navigation and sampled text contrast were checked against the relevant WCAG AA thresholds; this is not a complete accessibility certification.
 
 ## How it works
 
@@ -274,7 +275,7 @@ The reference production setup runs two hardened containers. Caddy is the only p
 
 ```sh
 # Health of a running container
-docker exec gpu-watch-dashboard python3 /app/scripts/check_local.py --health-only --expected-build-version 2
+docker exec gpu-watch-dashboard python3 /app/scripts/check_local.py --health-only --expected-build-version 2.5
 
 # SQLite integrity and aggregation invariants
 python3 scripts/audit-data.py data/gpu_watch.sqlite3
@@ -288,8 +289,8 @@ The maintenance worker makes daily SQLite backups, and `deploy.sh` adds one befo
 ## Development and tests
 
 ```sh
-python3 -m unittest discover -s tests -v   # 270 Python regression and contract tests
-node tests/test_frontend.js                # 21 frontend checks
+python3 -m unittest discover -s tests -v   # 284 Python regression and contract tests
+node tests/test_frontend.js                # 25 frontend checks
 ```
 
 A few tests are specific to Windows or POSIX and skip elsewhere. Run the full suite on Windows or on Linux with GNU coreutils; the minimal Alpine app image uses BusyBox and cannot run the GNU `du` fixtures.
@@ -312,7 +313,7 @@ The tests also lock product behavior, such as status rules, interval math, secur
 
 ## Release
 
-**v2**, the formal launch, released on 2026-09-30 by GPT-6.1 Sol (max). The dashboard shows no release footer; release details live in `VERSION`, `gpu_watch/__init__.py`, this README, and GitHub releases.
+**v2.5**, the formal launch, released on 2026-10-03 by GPT-6 Astra Ultra. The dashboard shows no release footer; release details live in `VERSION`, `gpu_watch/__init__.py`, this README, and GitHub releases.
 
 [RELEASE_VALIDATION.md](RELEASE_VALIDATION.md) lists the checks this release passed. It records tested behavior at this source version, not a guarantee for every future environment or failure.
 
