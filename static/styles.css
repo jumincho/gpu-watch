@@ -343,11 +343,14 @@ main {
   line-height: 1.6;
 }
 
+/* Cards share the board width before the row starts to scroll, so a third
+   notice is not clipped mid-word on wide screens. */
 .notice-item {
   position: relative;
-  flex: 0 0 min(410px, 76vw);
+  flex: 1 0 min(360px, 76vw);
   min-width: 240px;
-  padding: 8px 90px 9px 12px;
+  max-width: 560px;
+  padding: 8px 12px 9px;
   border: 1px solid var(--line-soft);
   border-left: 3px solid rgba(var(--accent-rgb), 0.62);
   border-radius: var(--radius-control);
@@ -361,6 +364,8 @@ main {
   justify-content: space-between;
   gap: 8px;
   margin-bottom: 4px;
+  /* Room for the edit/delete buttons; the message below uses the full width. */
+  padding-right: 78px;
 }
 
 .notice-item-head strong {
@@ -2841,6 +2846,14 @@ main {
   }
 }
 
+/* Four summary cards are too narrow at tablet widths; "37 / 1198 GB" would
+   break before its unit. Use the same 2 × 2 grid as phones in landscape. */
+@media (min-width: 761px) and (max-width: 980px) {
+  .summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (min-width: 761px) and (max-width: 1100px) {
   .lab-pulse {
     grid-template-columns: minmax(230px, 0.62fr) minmax(420px, 1fr);
@@ -2917,6 +2930,20 @@ main {
 
   .pulse-chart {
     height: 82px;
+    overflow: visible;
+  }
+
+  /* The candle chart keeps its 720-unit viewBox, so its axis text shrinks
+     with the screen. Scale the label size up in steps to stay readable;
+     overflow: visible lets wider labels use the panel padding. Place GB
+     over the plot start so it cannot overlap the enlarged top axis value. */
+  .pulse-axis-label,
+  .pulse-axis-unit {
+    font-size: 13px;
+  }
+
+  .pulse-axis-unit {
+    transform: translate(52px, -5px);
   }
 
   .section-title {
@@ -3006,6 +3033,19 @@ main {
 
   .notice-board {
     flex: 0 0 auto;
+  }
+
+  /* 44px touch targets reach the message, so keep it clear of them. */
+  .notice-item {
+    padding-right: 90px;
+  }
+
+  /* On narrow cards the expiry moves under the author instead of splitting
+     the author name mid-word. */
+  .notice-item-head {
+    flex-wrap: wrap;
+    row-gap: 0;
+    padding-right: 0;
   }
 
   .host-grid {
@@ -3102,7 +3142,27 @@ main {
   }
 }
 
+@media (max-width: 600px) {
+  .pulse-axis-label,
+  .pulse-axis-unit {
+    font-size: 18px;
+  }
+
+  .pulse-axis-unit {
+    transform: translate(52px, -8px);
+  }
+}
+
 @media (max-width: 460px) {
+  .pulse-axis-label,
+  .pulse-axis-unit {
+    font-size: 26px;
+  }
+
+  .pulse-axis-unit {
+    transform: translate(52px, -14px);
+  }
+
   .lab-tab {
     width: 100%;
     min-width: 0;

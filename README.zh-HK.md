@@ -2,6 +2,8 @@
 
 一個輕量、無需代理程式的儀表板，專為實驗室共用的 GPU 伺服器而設。它會顯示哪些 GPU 現時空閒、忙碌的 GPU 由誰使用，以及磁碟尚餘多少空間。所有數據只透過普通 SSH 收集。
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) ![Python 3.12](https://img.shields.io/badge/python-3.12-3776ab.svg) ![Dependencies: standard library only](https://img.shields.io/badge/dependencies-stdlib%20only-success.svg) ![Frontend: no build step](https://img.shields.io/badge/frontend-no%20build%20step-informational.svg)
+
 **v2.5** · 2026-10-03 發佈 · GPT-6 Astra Ultra · [發佈驗證](RELEASE_VALIDATION.md)
 
 [English](README.md) | [简体中文](README.zh-CN.md) | **繁體中文** | [日本語](README.ja.md) | [한국어](README.ko.md)
@@ -133,7 +135,7 @@ python3 scripts/admin-passphrase.py ensure
 python3 server.py --host 127.0.0.1 --port 8787
 ```
 
-開啟 <http://127.0.0.1:8787/>。請把管理員 PIN 存放在安全的地方，然後刪除純文字檔案。
+開啟 <http://127.0.0.1:8787/>。請把管理員 PIN 存放在安全的地方，然後刪除純文字檔案。日後如需設定新的 4 位數 PIN，請執行 `python3 scripts/admin-passphrase.py rotate`。
 
 預設只容許本機回送（loopback）用戶端連線。如要讓區域網絡內的其他電腦瀏覽，請明確列出容許的對象。以下地址只作示例。
 
@@ -184,9 +186,9 @@ python3 server.py --host 0.0.0.0 --port 8787
 | `ssh_password_file`、`ssh_options` | 密碼登入。密碼檔案放在 `secrets/` 之下，於執行時讀取。 |
 | `display_ip` | 以別名連線的主機在卡片上顯示的 IP。必須是有效的 IP 地址。 |
 | `expected_gpu_count` | 伺服器處於 DOWN 狀態時仍然顯示的 GPU 格數 |
-| `note`、`owner`、`owner_type`、`location` | 卡片上的文字及徽章樣式（`assigned` 或 `shared`） |
+| `note`、`owner`、`owner_type`、`location` | 卡片上的文字及徽章樣式：`assigned` 或 `shared`（`owner` 為 `공용` 時亦視作 shared），另有實驗室專用的 `physical_ai_2` 及 `app_serving` 樣式 |
 | `disk_user_paths` | 額外量度的按用戶路徑，格式為 `{ "user": …, "path": … }` |
-| `collect_docker_usage` | 同時以 `docker ps --size` 量度 Docker 可寫層。預設只為 `nll` 實驗室的主機啟用。 |
+| `collect_docker_usage` | 一般探針同時以 `docker ps --size` 量度 Docker 可寫層。預設只為 `lab` 是 `nll` 的主機啟用；其他實驗室請明確設定。`privileged_disk_helper` 按固定政策一律收集 Docker 用量，不受此選項影響。 |
 | `privileged_disk_helper` | 透過已安裝的 root 輔助程式量度磁碟用量。不可與 `disk_user_paths` 同時使用。 |
 
 其他頂層設定包括探測逾時、`collector_workers`、決定 🔥 及 ❄️ 徽章門檻的 `activity_policy`，以及保留期限：
