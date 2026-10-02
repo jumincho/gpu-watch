@@ -2935,14 +2935,15 @@ main {
 
   /* The candle chart keeps its 720-unit viewBox, so its axis text shrinks
      with the screen. Scale the label size up in steps to stay readable;
-     overflow: visible lets wider labels use the panel padding. */
+     overflow: visible lets wider labels use the panel padding. Place GB
+     over the plot start so it cannot overlap the enlarged top axis value. */
   .pulse-axis-label,
   .pulse-axis-unit {
     font-size: 13px;
   }
 
   .pulse-axis-unit {
-    transform: translateY(-5px);
+    transform: translate(52px, -5px);
   }
 
   .section-title {
@@ -3148,7 +3149,7 @@ main {
   }
 
   .pulse-axis-unit {
-    transform: translateY(-8px);
+    transform: translate(52px, -8px);
   }
 }
 
@@ -3159,7 +3160,7 @@ main {
   }
 
   .pulse-axis-unit {
-    transform: translateY(-14px);
+    transform: translate(52px, -14px);
   }
 
   .lab-tab {

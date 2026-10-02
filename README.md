@@ -188,7 +188,7 @@ The bundled `hosts.json` describes a fictional lab. Replace it with your own ser
 | `expected_gpu_count` | Number of GPU slots to keep showing while the server is down |
 | `note`, `owner`, `owner_type`, `location` | Card text and badge style: `assigned` or `shared` (an owner of `공용` also counts as shared), plus the lab-specific `physical_ai_2` and `app_serving` styles |
 | `disk_user_paths` | Extra per-user paths to measure, as `{ "user": …, "path": … }` |
-| `collect_docker_usage` | Also measure Docker writable layers with `docker ps --size`. On by default only for hosts whose `lab` is `nll`; set it explicitly for other labs. |
+| `collect_docker_usage` | For the normal probe, also measure Docker writable layers with `docker ps --size`. On by default only when `lab` is `nll`; set it explicitly for other labs. `privileged_disk_helper` always includes Docker usage under its fixed policy, independently of this option. |
 | `privileged_disk_helper` | Measure disk usage through the installed root helper. Cannot be combined with `disk_user_paths`. |
 
 Other top-level settings cover probe timeouts, `collector_workers`, the `activity_policy` thresholds for the 🔥 and ❄️ badges, and retention:

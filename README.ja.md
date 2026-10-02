@@ -188,7 +188,7 @@ python3 server.py --host 0.0.0.0 --port 8787
 | `expected_gpu_count` | サーバーが DOWN のあいだも表示し続ける GPU の枠の数 |
 | `note`、`owner`、`owner_type`、`location` | カードに表示する文言とバッジのスタイル。`assigned` または `shared`（`owner` が `공용` の場合も shared 扱い）のほか、研究室固有の `physical_ai_2` と `app_serving` があります |
 | `disk_user_paths` | 追加で測定するユーザー別のパス。`{ "user": …, "path": … }` の形式です。 |
-| `collect_docker_usage` | `docker ps --size` で Docker の書き込みレイヤーも測定します。既定で有効なのは `lab` が `nll` のホストだけです。ほかの研究室では明示的に設定してください。 |
+| `collect_docker_usage` | 通常のプローブで `docker ps --size` により Docker の書き込みレイヤーも測定します。既定で有効なのは `lab` が `nll` のホストだけです。ほかの研究室では明示的に設定してください。`privileged_disk_helper` はこのオプションに関係なく、固定の方針に従って Docker 使用量を常に収集します。 |
 | `privileged_disk_helper` | インストールした root ヘルパーでディスク使用量を測定します。`disk_user_paths` とは併用できません。 |
 
 このほかのトップレベルの設定には、プローブのタイムアウト、`collector_workers`、🔥 と ❄️ のバッジの基準を決める `activity_policy`、保存期間があります。

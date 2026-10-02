@@ -188,7 +188,7 @@ python3 server.py --host 0.0.0.0 --port 8787
 | `expected_gpu_count` | 服务器处于 DOWN 状态时仍然显示的 GPU 格数 |
 | `note`、`owner`、`owner_type`、`location` | 卡片上的文字和徽章样式：`assigned` 或 `shared`（`owner` 为 `공용` 时也视为 shared），另有实验室专用的 `physical_ai_2` 和 `app_serving` 样式 |
 | `disk_user_paths` | 额外测量的按用户路径，格式为 `{ "user": …, "path": … }` |
-| `collect_docker_usage` | 同时用 `docker ps --size` 测量 Docker 可写层。默认仅对 `lab` 为 `nll` 的主机开启；其他实验室请显式设置。 |
+| `collect_docker_usage` | 普通探针同时用 `docker ps --size` 测量 Docker 可写层。默认仅对 `lab` 为 `nll` 的主机开启；其他实验室请显式设置。`privileged_disk_helper` 按固定策略始终采集 Docker 用量，不受此选项影响。 |
 | `privileged_disk_helper` | 通过已安装的 root 助手测量磁盘用量。不能与 `disk_user_paths` 同时使用。 |
 
 其他顶层设置包括探测超时、`collector_workers`、决定 🔥 和 ❄️ 徽章阈值的 `activity_policy`，以及保留期限：

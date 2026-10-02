@@ -188,7 +188,7 @@ python3 server.py --host 0.0.0.0 --port 8787
 | `expected_gpu_count` | 서버가 DOWN일 때도 계속 보여 줄 GPU 칸 수 |
 | `note`, `owner`, `owner_type`, `location` | 카드에 표시할 문구와 배지 스타일. `assigned` 또는 `shared`(`owner`가 `공용`이어도 shared로 표시)와 연구실 전용 `physical_ai_2`, `app_serving` 스타일이 있습니다 |
 | `disk_user_paths` | 추가로 측정할 사용자별 경로. `{ "user": …, "path": … }` 형식입니다. |
-| `collect_docker_usage` | `docker ps --size`로 Docker 쓰기 계층도 측정합니다. 기본으로는 `lab`이 `nll`인 호스트에서만 켜지며, 다른 연구실에서는 직접 설정합니다. |
+| `collect_docker_usage` | 일반 probe에서 `docker ps --size`로 Docker 쓰기 계층도 측정합니다. 기본으로는 `lab`이 `nll`인 호스트에서만 켜지며, 다른 연구실에서는 직접 설정합니다. `privileged_disk_helper`는 이 옵션과 무관하게 고정 정책에 따라 Docker 사용량을 항상 함께 수집합니다. |
 | `privileged_disk_helper` | 설치한 root helper로 디스크 사용량을 측정합니다. `disk_user_paths`와 함께 쓸 수 없습니다. |
 
 그 밖의 최상위 설정으로는 프로브 제한 시간, `collector_workers`, 🔥·❄️ 배지 기준을 정하는 `activity_policy`, 보존 기간이 있습니다.
